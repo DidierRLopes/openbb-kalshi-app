@@ -1,91 +1,89 @@
 [
   {
-    "name": "Kalshi Event Explorer",
-    "img": "http://127.0.0.1:7779/thumbnail.svg",
-    "img_dark": "http://127.0.0.1:7779/thumbnail.svg",
-    "img_light": "http://127.0.0.1:7779/thumbnail.svg",
-    "description": "Event-first Kalshi dashboard. Start with readable event discovery, click an event, inspect all associated markets, then click a market for YES/NO probability, orderbook depth, trades, and historical chart/raw data.",
+    "name": "Kalshi Market Explorer",
+    "img": "thumbnail.svg",
+    "img_dark": "thumbnail.svg",
+    "img_light": "thumbnail.svg",
+    "description": "Search and browse active Kalshi markets, then drill from event to market for probability, orderbook, trades, and price history.",
     "allowCustomization": true,
     "tabs": {
-      "events": {
-        "id": "events",
-        "name": "Events",
+      "discover": {
+        "id": "discover",
+        "name": "Discover",
         "layout": [
           {
-            "i": "events_table",
+            "i": "volume_by_category",
             "x": 0,
             "y": 2,
             "w": 40,
-            "h": 13,
+            "h": 16,
+            "groups": [],
             "state": {
               "params": {
-                "category": "All"
-              },
-              "chartView": {
-                "enabled": false,
-                "chartType": "line"
-              },
-              "columnState": {
-                "default": {
-                  "columnPinning": {
-                    "leftColIds": [
-                      "title"
-                    ],
-                    "rightColIds": []
-                  },
-                  "columnOrder": {
-                    "orderedColIds": [
-                      "title",
-                      "category",
-                      "subtitle",
-                      "event_ticker",
-                      "series_ticker",
-                      "mutually_exclusive",
-                      "available_on_brokers",
-                      "last_updated"
-                    ]
-                  }
-                }
+                "metric": "volume_total",
+                "tag": "All",
+                "close_within": "7"
               }
-            },
-            "groups": [
-              "Group 1"
-            ]
+            }
           },
+          {
+            "i": "browse_markets",
+            "x": 0,
+            "y": 18,
+            "w": 40,
+            "h": 28,
+            "groups": [],
+            "state": {
+              "params": {
+                "search": "",
+                "category": "All",
+                "tag": "All",
+                "sort": "trending"
+              }
+            }
+          }
+        ]
+      },
+      "event": {
+        "id": "event",
+        "name": "Event",
+        "layout": [
           {
             "i": "event_metrics",
             "x": 0,
-            "y": 15,
+            "y": 2,
             "w": 40,
             "h": 4,
-            "state": {
-              "params": {
-                "event_ticker": "KXERUPTSUPER-0"
-              }
-            },
             "groups": [
               "Group 1"
             ]
           },
           {
-            "i": "event_brief",
+            "i": "event_history_chart",
             "x": 0,
-            "y": 19,
+            "y": 6,
             "w": 40,
-            "h": 12,
-            "state": {
-              "params": {
-                "event_ticker": "KXERUPTSUPER-0"
-              }
-            },
+            "h": 15,
             "groups": [
-              "Group 1"
+              "Group 1",
+              "Group 2"
+            ]
+          },
+          {
+            "i": "event_markets",
+            "x": 0,
+            "y": 21,
+            "w": 40,
+            "h": 15,
+            "groups": [
+              "Group 1",
+              "Group 2"
             ]
           }
         ]
       },
-      "markets": {
-        "id": "markets",
+      "market": {
+        "id": "market",
         "name": "Markets",
         "layout": [
           {
@@ -93,201 +91,42 @@
             "x": 0,
             "y": 2,
             "w": 40,
-            "h": 9,
-            "state": {
-              "params": {
-                "event_ticker": "EVSHARE-30JAN"
-              },
-              "chartView": {
-                "enabled": false,
-                "chartType": "line"
-              },
-              "columnState": {
-                "default": {
-                  "columnPinning": {
-                    "leftColIds": [
-                      "subtitle"
-                    ],
-                    "rightColIds": []
-                  },
-                  "columnOrder": {
-                    "orderedColIds": [
-                      "subtitle",
-                      "last_price_pct",
-                      "yes_bid_pct",
-                      "yes_ask_pct",
-                      "spread_points",
-                      "volume_total",
-                      "open_interest",
-                      "volume_24h",
-                      "close_time",
-                      "price_change_points",
-                      "liquidity",
-                      "updated_time",
-                      "ticker",
-                      "market_key",
-                      "event_ticker",
-                      "series_ticker",
-                      "title",
-                      "status"
-                    ]
-                  },
-                  "rowSelection": [
-                    "2"
-                  ]
-                }
-              }
-            },
+            "h": 10,
             "groups": [
               "Group 1",
               "Group 2"
             ]
           },
           {
-            "i": "market_probability_gauge",
-            "x": 0,
-            "y": 11,
-            "w": 17,
-            "h": 8,
-            "state": {
-              "params": {
-                "market_key": "KXERUPTSUPER|KXERUPTSUPER-0-50JAN01|KXERUPTSUPER-0"
-              }
-            },
-            "groups": [
-              "Group 2"
-            ]
-          },
-          {
-            "i": "market_probability_table",
-            "x": 0,
-            "y": 19,
-            "w": 17,
-            "h": 7,
-            "state": {
-              "params": {
-                "market_key": "KXEVSHARE|EVSHARE-30JAN-20|EVSHARE-30JAN"
-              },
-              "chartView": {
-                "enabled": false,
-                "chartType": "line"
-              },
-              "columnState": {
-                "default": {
-                  "columnPinning": {
-                    "leftColIds": [
-                      "side"
-                    ],
-                    "rightColIds": []
-                  },
-                  "columnOrder": {
-                    "orderedColIds": [
-                      "side",
-                      "probability_pct",
-                      "bid_pct",
-                      "ask_pct",
-                      "source"
-                    ]
-                  }
-                }
-              }
-            },
-            "groups": [
-              "Group 2"
-            ]
-          },
-          {
             "i": "market_brief",
-            "x": 17,
-            "y": 11,
-            "w": 23,
-            "h": 15,
-            "state": {
-              "params": {
-                "market_key": "KXERUPTSUPER|KXERUPTSUPER-0-50JAN01|KXERUPTSUPER-0"
-              }
-            },
+            "x": 0,
+            "y": 12,
+            "w": 40,
+            "h": 20,
             "groups": [
+              "Group 1",
               "Group 2"
             ]
-          }
-        ]
-      },
-      "market_detail": {
-        "id": "market_detail",
-        "name": "Market Detail",
-        "layout": [
+          },
           {
             "i": "orderbook_ladder",
             "x": 0,
-            "y": 2,
-            "w": 20,
-            "h": 24,
-            "state": {
-              "params": {
-                "market_key": "KXERUPTSUPER|KXERUPTSUPER-0-50JAN01|KXERUPTSUPER-0"
-              }
-            },
+            "y": 32,
+            "w": 40,
+            "h": 20,
             "groups": [
+              "Group 1",
               "Group 2"
             ]
           },
           {
             "i": "selected_trades",
-            "x": 20,
-            "y": 2,
-            "w": 20,
-            "h": 24,
-            "state": {
-              "params": {
-                "market_key": "KXEVSHARE|EVSHARE-30JAN-20|EVSHARE-30JAN"
-              },
-              "chartView": {
-                "enabled": false,
-                "chartType": "line"
-              },
-              "columnState": {
-                "default": {
-                  "columnOrder": {
-                    "orderedColIds": [
-                      "created_time",
-                      "count",
-                      "yes_price",
-                      "no_price",
-                      "trade_price",
-                      "notional",
-                      "taker_outcome_side",
-                      "taker_book_side",
-                      "ticker",
-                      "trade_id",
-                      "taker_side"
-                    ]
-                  }
-                }
-              }
-            },
-            "groups": [
-              "Group 2"
-            ]
-          }
-        ]
-      },
-      "history": {
-        "id": "history",
-        "name": "History",
-        "layout": [
-          {
-            "i": "market_price_chart",
             "x": 0,
-            "y": 2,
+            "y": 52,
             "w": 40,
-            "h": 16,
-            "state": {
-              "params": {
-                "market_key": "KXERUPTSUPER|KXERUPTSUPER-0-50JAN01|KXERUPTSUPER-0"
-              }
-            },
+            "h": 12,
             "groups": [
+              "Group 1",
               "Group 2"
             ]
           }
@@ -299,21 +138,36 @@
         "name": "Group 1",
         "type": "endpointParam",
         "paramName": "event_ticker",
-        "defaultValue": "EVSHARE-30JAN"
+        "defaultValue": "",
+        "widgetIds": [
+          "event_metrics",
+          "event_history_chart",
+          "event_markets",
+          "market_brief",
+          "orderbook_ladder",
+          "selected_trades"
+        ]
       },
       {
         "name": "Group 2",
         "type": "endpointParam",
         "paramName": "market_key",
-        "defaultValue": "KXEVSHARE|EVSHARE-30JAN-20|EVSHARE-30JAN"
+        "defaultValue": "",
+        "widgetIds": [
+          "event_markets",
+          "market_brief",
+          "orderbook_ladder",
+          "selected_trades",
+          "event_history_chart"
+        ]
       }
     ],
     "prompts": [
-      "Find open Kalshi events with the most active volume, liquidity, or unusual market structure.",
-      "Filter events by category or regex and suggest one worth inspecting next.",
+      "Which categories have the most 24h volume and open interest right now?",
+      "Show the top markets resolving within 7 days and which look most active.",
       "Summarize the selected event, including its markets, prices, spreads, volume, and open interest.",
       "Explain the selected market's YES/NO probability, bid-ask spread, orderbook depth, and recent trades.",
-      "Summarize the selected market's historical price movement and notable changes from the History tab."
+      "Summarize the selected market's historical price movement from the History tab."
     ]
   }
 ]
