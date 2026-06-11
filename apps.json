@@ -18,13 +18,11 @@
             "w": 40,
             "h": 16,
             "groups": [
-              "Group 4",
-              "Group 5"
+              "Group 4"
             ],
             "state": {
               "params": {
                 "metric": "volume_total",
-                "tag": "All",
                 "close_within": "7"
               }
             }
@@ -38,14 +36,12 @@
             "groups": [
               "Group 1",
               "Group 2",
-              "Group 4",
-              "Group 5"
+              "Group 4"
             ],
             "state": {
               "params": {
                 "search": "",
-                "category": "All",
-                "tag": "All",
+                "selection": "All",
                 "market_key": "",
                 "sort": "trending"
               }
@@ -176,7 +172,7 @@
         "name": "Group 3",
         "type": "endpointParam",
         "paramName": "history_market_key",
-        "defaultValue": "__top_3__",
+        "defaultValue": "",
         "widgetIds": [
           "event_outcomes",
           "event_history_chart"
@@ -185,17 +181,7 @@
       {
         "name": "Group 4",
         "type": "endpointParam",
-        "paramName": "category",
-        "defaultValue": "All",
-        "widgetIds": [
-          "volume_by_category",
-          "browse_markets"
-        ]
-      },
-      {
-        "name": "Group 5",
-        "type": "endpointParam",
-        "paramName": "tag",
+        "paramName": "selection",
         "defaultValue": "All",
         "widgetIds": [
           "volume_by_category",

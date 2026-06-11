@@ -231,9 +231,13 @@ class MarketStatsCache:
             bucket["open_interest"] += market["open_interest"]
             bucket["market_count"] += 1
         rows = []
-        for bucket in events.values():
+        for event_ticker, bucket in events.items():
             title = bucket.pop("title").replace("**", "").strip()
-            rows.append({"category": title, **{k: round(v, 2) for k, v in bucket.items()}})
+            rows.append({
+                "category": title,
+                "event_ticker": event_ticker,
+                **{k: round(v, 2) for k, v in bucket.items()},
+            })
         return rows
 
     async def default_event_ticker(

@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from kalshi import charts
-from kalshi.constants import TOP_HISTORY_MARKET_COUNT, TOP_HISTORY_MARKET_KEY
+from kalshi.constants import LEGACY_TOP_HISTORY_MARKET_KEY, TOP_HISTORY_MARKET_COUNT
 from kalshi.dependencies import get_service, get_stats, get_taxonomy, resolve_base_url
 from kalshi.event_page import render_event_page
 from kalshi.formatting import compact_number, parse_market_key, timestamp_to_iso
@@ -200,8 +200,8 @@ def _history_market_selection(history_market_key: Any) -> tuple[str, set[str]]:
     values = [
         part.strip()
         for value in raw_values
-        for part in str(value or TOP_HISTORY_MARKET_KEY).split(",")
-        if part and part.strip()
+        for part in str(value or "").split(",")
+        if part and part.strip() and part.strip() != LEGACY_TOP_HISTORY_MARKET_KEY
     ]
     if any(value == ALL for value in values):
         return "all", set()

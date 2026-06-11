@@ -102,10 +102,9 @@ _BRIDGE_JS = r"""
       });
     }
     var qs = new URLSearchParams(window.location.search), changed = false;
-    var category = String(incoming.category != null ? incoming.category : (qs.get("category") || ""));
-    var tag = String(incoming.tag != null ? incoming.tag : (qs.get("tag") || ""));
+    var selection = String(incoming.selection != null ? incoming.selection : (qs.get("selection") || ""));
     var search = String(incoming.search != null ? incoming.search : (qs.get("search") || ""));
-    var grouped = (category && category !== "All") || (tag && tag !== "All");
+    var grouped = !!selection && selection !== "All";
     if (grouped && GROUP_FILTER_VALUES[search.toLowerCase()]) {
       incoming.search = "";
       emitWidgetParams({ search: "" });
@@ -128,7 +127,10 @@ _BRIDGE_JS = r"""
   function selectEvent(eventTicker, marketKey) {
     var params = {};
     if (eventTicker) params.event_ticker = eventTicker;
-    if (marketKey) params.market_key = marketKey;
+    if (eventTicker) params.market_key = marketKey || "";
+    if (eventTicker && CFG.selectionPrefix) {
+      params.selection = CFG.selectionPrefix + " > " + eventTicker;
+    }
     emitWidgetParams(params);
   }
 
@@ -167,10 +169,24 @@ _BRIDGE_JS = r"""
     if (replace) window.location.replace(url);
     else window.location.href = url;
   }
+  // Auto-drill into the shared event only when it actually changed; the
+  // event/market groups keep their last value, so without this guard every
+  // reload (e.g. a category click) would bounce back into the stale event.
+  var OPENED_KEY = "kalshi-browse-opened";
+  function readOpened() {
+    try { return window.sessionStorage.getItem(OPENED_KEY) || ""; } catch (e) { return ""; }
+  }
+  function writeOpened(value) {
+    try { window.sessionStorage.setItem(OPENED_KEY, value); } catch (e) {}
+  }
   if (CFG.selectedEventTicker) {
-    window.setTimeout(function () {
-      openEvent(CFG.selectedEventTicker, CFG.selectedMarketKey || "", true, false);
-    }, 0);
+    var openedTarget = JSON.stringify([CFG.selectedEventTicker, CFG.selectedMarketKey || ""]);
+    if (CFG.emitOnLoad === true || openedTarget !== readOpened()) {
+      window.setTimeout(function () {
+        writeOpened(openedTarget);
+        openEvent(CFG.selectedEventTicker, CFG.selectedMarketKey || "", true, CFG.emitOnLoad === true);
+      }, 0);
+    }
   }
   function buildGrid() {
     if (gridApi || !window.agGrid) return;
@@ -328,6 +344,8 @@ def render_browse(
     back_qs: str = "",
     selected_event_ticker: str = "",
     selected_market_key: str = "",
+    selection_prefix: str = "",
+    emit_on_load: bool = False,
 ) -> str:
     is_light = theme == "light"
     grid_theme = "ag-theme-quartz" if is_light else "ag-theme-quartz-dark"
@@ -353,6 +371,8 @@ def render_browse(
         "back": back_qs,
         "selectedEventTicker": selected_event_ticker,
         "selectedMarketKey": selected_market_key,
+        "selectionPrefix": selection_prefix,
+        "emitOnLoad": emit_on_load,
     })
 
     return f"""

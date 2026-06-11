@@ -88,3 +88,31 @@ def parse_market_key(market_key: str | None) -> dict[str, str]:
         "market_ticker": market_ticker.strip(),
         "event_ticker": event_ticker.strip(),
     }
+
+
+SELECTION_SEPARATOR = " > "
+
+
+def compose_selection(category: str = "", tag: str = "", event_ticker: str = "") -> str:
+    """Build a `Category > Tag > Event` drill-selection string."""
+    parts = [category or "All"]
+    if tag or event_ticker:
+        parts.append(tag or "All")
+    if event_ticker:
+        parts.append(event_ticker)
+    return SELECTION_SEPARATOR.join(parts)
+
+
+def parse_selection(selection: Any) -> dict[str, str]:
+    """Split a `Category > Tag > Event` selection into its components."""
+    parts = [part.strip() for part in str(selection or "").split(SELECTION_SEPARATOR)]
+    parts += [""] * (3 - len(parts))
+
+    def _component(value: str) -> str:
+        return "" if value in ("", "All") else value
+
+    return {
+        "category": _component(parts[0]),
+        "tag": _component(parts[1]),
+        "event_ticker": parts[2],
+    }

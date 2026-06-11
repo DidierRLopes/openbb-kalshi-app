@@ -7,11 +7,13 @@ from copy import deepcopy
 from functools import lru_cache
 from typing import Any
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 
 from kalshi.config import ROOT_PATH
+from kalshi.constants import TOP_HISTORY_MARKET_COUNT
 from kalshi.dependencies import get_service, get_stats, resolve_base_url
+from kalshi.formatting import build_market_key, to_float
 from kalshi.service import MarketDataService
 from kalshi.stats import MarketStatsCache
 
@@ -81,27 +83,57 @@ def _resolve_app_assets(manifest: Any, base_url: str) -> Any:
     return resolved
 
 
-async def _selection_defaults(stats: MarketStatsCache, service: MarketDataService) -> dict[str, str]:
-    """Return the live default event and market."""
+def _is_empty_default(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, (list, tuple, set)):
+        return len(value) == 0
+    return not str(value).strip()
+
+
+async def _top_history_market_keys(service: MarketDataService, event_ticker: str) -> list[str]:
+    """The highest-probability markets for the default history selection."""
+    if not (event_ticker or "").strip():
+        return []
+    try:
+        resolved = await service.resolve_event(event_ticker=event_ticker)
+    except HTTPException:
+        return []
+
+    def probability(market: dict[str, Any]) -> float:
+        return to_float(market.get("last_price_dollars")) or to_float(
+            market.get("yes_bid_dollars")
+        )
+
+    markets = sorted(resolved["markets"], key=probability, reverse=True)
+    return [
+        build_market_key(resolved["series_ticker"], market.get("ticker", ""), resolved["event_ticker"])
+        for market in markets[:TOP_HISTORY_MARKET_COUNT]
+        if market.get("ticker")
+    ]
+
+
+async def _selection_defaults(stats: MarketStatsCache, service: MarketDataService) -> dict[str, Any]:
+    """Return the live default event, market, and history outcomes."""
     event = await stats.default_event_ticker()
     market = await service.default_market_key(event) if event else ""
-    return {"event_ticker": event, "market_key": market}
+    history_markets = await _top_history_market_keys(service, event)
+    return {"event_ticker": event, "market_key": market, "history_market_key": history_markets}
 
 
-def _apply_value_defaults(manifest: dict[str, Any], defaults: dict[str, str]) -> dict[str, Any]:
+def _apply_value_defaults(manifest: dict[str, Any], defaults: dict[str, Any]) -> dict[str, Any]:
     """Fill empty endpoint-param values with the resolved default."""
     for widget in manifest.values():
         if not isinstance(widget, dict):
             continue
         for param in widget.get("params", []):
             name = param.get("paramName")
-            val = param.get("value")
-            if name in defaults and defaults[name] and (val is None or not str(val).strip()):
+            if name in defaults and defaults[name] and _is_empty_default(param.get("value")):
                 param["value"] = defaults[name]
     return manifest
 
 
-def _apply_group_defaults(manifest: Any, defaults: dict[str, str]) -> Any:
+def _apply_group_defaults(manifest: Any, defaults: dict[str, Any]) -> Any:
     """Fill empty group defaultValues with the resolved default."""
     apps = manifest if isinstance(manifest, list) else [manifest]
     for app in apps:
@@ -109,7 +141,7 @@ def _apply_group_defaults(manifest: Any, defaults: dict[str, str]) -> Any:
             continue
         for group in app.get("groups", []):
             name = group.get("paramName")
-            if name in defaults and defaults[name] and not str(group.get("defaultValue", "")).strip():
+            if name in defaults and defaults[name] and _is_empty_default(group.get("defaultValue")):
                 group["defaultValue"] = defaults[name]
     return manifest
 
