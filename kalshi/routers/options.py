@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
 
+from kalshi.constants import TOP_HISTORY_MARKET_LABEL, TOP_HISTORY_MARKET_KEY
 from kalshi.dependencies import get_service, get_stats, get_taxonomy
 from kalshi.formatting import build_market_key, compact_number, parse_market_key, to_float
 from kalshi.service import MarketDataService
@@ -57,16 +58,34 @@ async def _event_options(stats: MarketStatsCache, category: str, tag: str, serie
     return options
 
 
-async def _market_options(service: MarketDataService, event_ticker: str, market_key: str) -> list[Option]:
+async def _market_options(
+    service: MarketDataService,
+    event_ticker: str,
+    market_key: str,
+    include_all: bool = False,
+    include_top: bool = False,
+) -> list[Option]:
+    options: list[Option] = [{"label": "All outcomes", "value": "All"}] if include_all else []
+    if include_top:
+        options.append({"label": TOP_HISTORY_MARKET_LABEL, "value": TOP_HISTORY_MARKET_KEY})
     ticker = (event_ticker or "").strip()
-    if not ticker and market_key:
+    if not ticker and market_key and market_key not in ("All", TOP_HISTORY_MARKET_KEY):
         ticker = parse_market_key(market_key)["event_ticker"]
     if not ticker:
-        return []
+        return options
     resolved = await service.resolve_event(event_ticker=ticker)
     series_ticker = resolved["series_ticker"]
-    markets = sorted(resolved["markets"], key=lambda m: to_float(m.get("volume_fp")), reverse=True)
-    options: list[Option] = []
+
+    def probability_sort(market: dict[str, object]) -> float:
+        return to_float(market.get("last_price_dollars")) or to_float(
+            market.get("yes_bid_dollars")
+        )
+
+    def volume_sort(market: dict[str, object]) -> float:
+        return to_float(market.get("volume_fp"))
+
+    sort_key = probability_sort if include_top else volume_sort
+    markets = sorted(resolved["markets"], key=sort_key, reverse=True)
     seen: set[str] = set()
     for market in markets[:200]:
         market_ticker = market.get("ticker", "")
@@ -89,6 +108,8 @@ async def options(
     series_ticker: str = Query(""),
     event_ticker: str = Query(""),
     market_key: str = Query(""),
+    include_all: bool = Query(False),
+    include_top: bool = Query(False),
     stats: MarketStatsCache = Depends(get_stats),
     taxonomy: TaxonomyCache = Depends(get_taxonomy),
     service: MarketDataService = Depends(get_service),
@@ -101,5 +122,5 @@ async def options(
     if field == "event_ticker":
         return await _event_options(stats, category, tag, series_ticker)
     if field == "market_key":
-        return await _market_options(service, event_ticker, market_key)
+        return await _market_options(service, event_ticker, market_key, include_all, include_top)
     return await _category_options(taxonomy)

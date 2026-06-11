@@ -97,7 +97,9 @@ _DOC_SCRIPT = """<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11
       .catch(function () { msg('Could not load the document. Use "Open in new tab".'); });
   }
   document.querySelectorAll('[data-doc]').forEach(function (b) {
-    b.addEventListener('click', function () { show(b.getAttribute('data-doc'), b.getAttribute('data-label')); });
+    b.addEventListener('click', function () {
+      show(b.getAttribute('data-doc'), b.getAttribute('data-label'));
+    });
   });
   document.querySelectorAll('[data-close]').forEach(function (b) { b.addEventListener('click', hide); });
   document.getElementById('doc-zin').addEventListener('click', function () { zoom(1.25); });

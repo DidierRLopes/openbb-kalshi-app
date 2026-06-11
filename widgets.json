@@ -1,9 +1,9 @@
 {
   "volume_by_category": {
-    "name": "24h Volume by Category / Tag",
+    "name": "Volume by Category",
     "description": "Aggregated open-market activity grouped by Kalshi category or tag. Toggle the metric (24h volume, open interest, total volume) and restrict to markets resolving within a window.",
     "category": "Kalshi",
-    "type": "chart",
+    "type": "table",
     "endpoint": "volume_by_category",
     "raw": true,
     "gridData": {
@@ -17,13 +17,27 @@
       {
         "paramName": "category",
         "type": "endpoint",
+        "groupById": "category-options",
         "label": "Category",
         "optionsEndpoint": "/options",
+        "value": "All",
+        "show": false,
         "optionsParams": {
           "field": "category"
+        }
+      },
+      {
+        "paramName": "tag",
+        "type": "endpoint",
+        "groupById": "tag-options",
+        "label": "Tag",
+        "optionsEndpoint": "/options",
+        "optionsParams": {
+          "field": "tag",
+          "category": "$category"
         },
         "value": "All",
-        "show": true
+        "show": false
       },
       {
         "paramName": "group_by",
@@ -62,18 +76,6 @@
         ]
       },
       {
-        "paramName": "tag",
-        "type": "endpoint",
-        "label": "Tag",
-        "optionsEndpoint": "/options",
-        "value": "All",
-        "show": true,
-        "optionsParams": {
-          "field": "tag",
-          "category": "$category"
-        }
-      },
-      {
         "paramName": "close_within",
         "type": "text",
         "label": "Closes Within",
@@ -100,8 +102,109 @@
             "value": "90"
           }
         ]
+      },
+      {
+        "paramName": "raw",
+        "type": "boolean",
+        "label": "Raw",
+        "value": true,
+        "show": false
       }
-    ]
+    ],
+    "data": {
+      "table": {
+        "showAll": false,
+        "enableCharts": false,
+        "columnsDefs": [
+          {
+            "field": "label",
+            "headerName": "Category / Tag / Event",
+            "cellDataType": "text",
+            "chartDataType": "category",
+            "pinned": "left",
+            "width": 280,
+            "renderFn": "cellOnClick",
+            "renderFnParams": {
+              "actionType": "groupBy",
+              "groupBys": [
+                {
+                  "paramName": "category",
+                  "valueField": "category"
+                },
+                {
+                  "paramName": "tag",
+                  "valueField": "tag"
+                }
+              ]
+            }
+          },
+          {
+            "field": "category",
+            "headerName": "Category",
+            "cellDataType": "text",
+            "chartDataType": "category",
+            "hide": true,
+            "width": 190,
+            "renderFn": "cellOnClick",
+            "renderFnParams": {
+              "actionType": "groupBy",
+              "groupBy": {
+                "paramName": "category",
+                "valueField": "category"
+              }
+            }
+          },
+          {
+            "field": "tag",
+            "headerName": "Tag",
+            "cellDataType": "text",
+            "chartDataType": "category",
+            "hide": true,
+            "width": 190,
+            "renderFn": "cellOnClick",
+            "renderFnParams": {
+              "actionType": "groupBy",
+              "groupBy": {
+                "paramName": "tag",
+                "valueField": "tag"
+              }
+            }
+          },
+          {
+            "field": "volume_24h",
+            "headerName": "24h Volume",
+            "cellDataType": "number",
+            "chartDataType": "series",
+            "formatterFn": "int",
+            "width": 130
+          },
+          {
+            "field": "volume_total",
+            "headerName": "Total Volume",
+            "cellDataType": "number",
+            "chartDataType": "series",
+            "formatterFn": "int",
+            "width": 130
+          },
+          {
+            "field": "open_interest",
+            "headerName": "Open Interest",
+            "cellDataType": "number",
+            "chartDataType": "series",
+            "formatterFn": "int",
+            "width": 135
+          },
+          {
+            "field": "market_count",
+            "headerName": "Markets",
+            "cellDataType": "number",
+            "chartDataType": "series",
+            "formatterFn": "int",
+            "width": 100
+          }
+        ]
+      }
+    }
   },
   "browse_markets": {
     "name": "Browse Markets",
@@ -114,6 +217,61 @@
       "h": 24
     },
     "source": "Kalshi",
+    "params": [
+      {
+        "paramName": "event_ticker",
+        "type": "endpoint",
+        "groupById": "event_ticker-options",
+        "label": "Event",
+        "optionsEndpoint": "/options",
+        "value": "",
+        "show": false,
+        "optionsParams": {
+          "field": "event_ticker",
+          "category": "$category",
+          "tag": "$tag"
+        }
+      },
+      {
+        "paramName": "market_key",
+        "type": "endpoint",
+        "groupById": "market_key-options",
+        "label": "Market",
+        "optionsEndpoint": "/options",
+        "value": "",
+        "show": false,
+        "optionsParams": {
+          "field": "market_key",
+          "event_ticker": "$event_ticker",
+          "market_key": "$market_key"
+        }
+      },
+      {
+        "paramName": "category",
+        "type": "endpoint",
+        "groupById": "category-options",
+        "label": "Category",
+        "optionsEndpoint": "/options",
+        "value": "All",
+        "show": false,
+        "optionsParams": {
+          "field": "category"
+        }
+      },
+      {
+        "paramName": "tag",
+        "type": "endpoint",
+        "groupById": "tag-options",
+        "label": "Tag",
+        "optionsEndpoint": "/options",
+        "optionsParams": {
+          "field": "tag",
+          "category": "$category"
+        },
+        "value": "All",
+        "show": false
+      }
+    ],
     "storage": {
       "mcpUrl": "mcp/"
     }
@@ -133,35 +291,13 @@
     ],
     "params": [
       {
-        "paramName": "category",
-        "type": "endpoint",
-        "label": "Category",
-        "optionsEndpoint": "/options",
-        "value": "All",
-        "show": true,
-        "optionsParams": {
-          "field": "category"
-        }
-      },
-      {
-        "paramName": "tag",
-        "type": "endpoint",
-        "label": "Tag",
-        "optionsEndpoint": "/options",
-        "optionsParams": {
-          "field": "tag",
-          "category": "$category"
-        },
-        "value": "All",
-        "show": true
-      },
-      {
         "paramName": "event_ticker",
         "type": "endpoint",
+        "groupById": "event_ticker-options",
         "label": "Event",
         "optionsEndpoint": "/options",
         "value": null,
-        "show": true,
+        "show": false,
         "optionsParams": {
           "field": "event_ticker",
           "category": "$category",
@@ -170,31 +306,15 @@
         "style": {
           "popupWidth": 950
         }
-      }
-    ]
-  },
-  "event_history_chart": {
-    "name": "Event Price History",
-    "description": "YES-probability history of the leading outcomes for the selected event, one line each.",
-    "category": "Kalshi",
-    "type": "chart",
-    "endpoint": "event_history_chart",
-    "raw": true,
-    "gridData": {
-      "w": 40,
-      "h": 15
-    },
-    "source": [
-      "Kalshi"
-    ],
-    "params": [
+      },
       {
         "paramName": "category",
         "type": "endpoint",
+        "groupById": "category-options",
         "label": "Category",
         "optionsEndpoint": "/options",
         "value": "All",
-        "show": false,
+        "show": true,
         "optionsParams": {
           "field": "category"
         }
@@ -202,6 +322,7 @@
       {
         "paramName": "tag",
         "type": "endpoint",
+        "groupById": "tag-options",
         "label": "Tag",
         "optionsEndpoint": "/options",
         "optionsParams": {
@@ -209,11 +330,35 @@
           "category": "$category"
         },
         "value": "All",
-        "show": false
-      },
+        "show": true
+      }
+    ]
+  },
+  "event_history_chart": {
+    "name": "Event Price History",
+    "description": "Line chart of YES probabilities for all event outcomes or selected outcomes.",
+    "category": "Kalshi",
+    "type": "table",
+    "endpoint": "event_history_chart",
+    "gridData": {
+      "w": 40,
+      "h": 15
+    },
+    "source": [
+      "Kalshi"
+    ],
+    "storage": {
+      "ignoreCellRange": true,
+      "chartView": {
+        "enabled": true,
+        "chartType": "line"
+      }
+    },
+    "params": [
       {
         "paramName": "event_ticker",
         "type": "endpoint",
+        "groupById": "event_ticker-options",
         "label": "Event",
         "optionsEndpoint": "/options",
         "value": "",
@@ -225,19 +370,71 @@
         }
       },
       {
-        "paramName": "market_key",
+        "paramName": "category",
         "type": "endpoint",
-        "label": "Market",
+        "groupById": "category-options",
+        "label": "Category",
         "optionsEndpoint": "/options",
+        "value": "All",
+        "show": false,
+        "optionsParams": {
+          "field": "category"
+        }
+      },
+      {
+        "paramName": "tag",
+        "type": "endpoint",
+        "groupById": "tag-options",
+        "label": "Tag",
+        "optionsEndpoint": "/options",
+        "optionsParams": {
+          "field": "tag",
+          "category": "$category"
+        },
+        "value": "All",
+        "show": false
+      },
+      {
+        "paramName": "history_market_key",
+        "type": "endpoint",
+        "groupById": "history_market_key-options",
+        "label": "Outcome",
+        "optionsEndpoint": "/options",
+        "value": "__top_3__",
+        "show": true,
         "optionsParams": {
           "field": "market_key",
           "event_ticker": "$event_ticker",
-          "market_key": "$market_key"
+          "market_key": "$history_market_key",
+          "include_all": "true",
+          "include_top": "true"
         },
-        "value": "",
-        "show": false
+        "multiSelect": true
       }
-    ]
+    ],
+    "data": {
+      "table": {
+      "showAll": true,
+      "enableCharts": true,
+      "chartView": {
+        "enabled": true,
+        "chartType": "line",
+        "ignoreCellRange": true
+      },
+      "columnsDefs": [
+        {
+          "field": "time",
+          "headerName": "Time",
+          "cellDataType": "dateString",
+          "chartDataType": "time",
+          "pinned": "left",
+          "width": 170,
+          "sort": "asc",
+          "sortIndex": 0
+        }
+      ]
+    }
+    }
   },
   "event_markets": {
     "name": "Event Markets",
@@ -254,8 +451,23 @@
     ],
     "params": [
       {
+        "paramName": "event_ticker",
+        "type": "endpoint",
+        "groupById": "event_ticker-options",
+        "label": "Event",
+        "optionsEndpoint": "/options",
+        "value": "",
+        "show": false,
+        "optionsParams": {
+          "field": "event_ticker",
+          "category": "$category",
+          "tag": "$tag"
+        }
+      },
+      {
         "paramName": "category",
         "type": "endpoint",
+        "groupById": "category-options",
         "label": "Category",
         "optionsEndpoint": "/options",
         "value": "All",
@@ -267,6 +479,7 @@
       {
         "paramName": "tag",
         "type": "endpoint",
+        "groupById": "tag-options",
         "label": "Tag",
         "optionsEndpoint": "/options",
         "optionsParams": {
@@ -277,21 +490,9 @@
         "show": true
       },
       {
-        "paramName": "event_ticker",
-        "type": "endpoint",
-        "label": "Event",
-        "optionsEndpoint": "/options",
-        "value": "",
-        "show": true,
-        "optionsParams": {
-          "field": "event_ticker",
-          "category": "$category",
-          "tag": "$tag"
-        }
-      },
-      {
         "paramName": "market_key",
         "type": "endpoint",
+        "groupById": "market_key-options",
         "label": "Market",
         "optionsEndpoint": "/options",
         "value": "",
@@ -385,6 +586,233 @@
             "cellDataType": "dateString",
             "chartDataType": "category",
             "width": 170
+          },
+          {
+            "field": "market_key",
+            "headerName": "Market Key",
+            "cellDataType": "text",
+            "chartDataType": "category",
+            "hide": true
+          },
+          {
+            "field": "event_ticker",
+            "headerName": "Event Ticker",
+            "cellDataType": "text",
+            "chartDataType": "category",
+            "hide": true
+          },
+          {
+            "field": "series_ticker",
+            "headerName": "Series Ticker",
+            "cellDataType": "text",
+            "chartDataType": "category",
+            "hide": true
+          },
+          {
+            "field": "title",
+            "headerName": "Title",
+            "cellDataType": "text",
+            "chartDataType": "category",
+            "hide": true
+          },
+          {
+            "field": "status",
+            "headerName": "Status",
+            "cellDataType": "text",
+            "chartDataType": "category",
+            "hide": true
+          },
+          {
+            "field": "price_change_points",
+            "headerName": "Price Change",
+            "cellDataType": "number",
+            "chartDataType": "series",
+            "hide": true
+          },
+          {
+            "field": "volume_24h",
+            "headerName": "24h Volume",
+            "cellDataType": "number",
+            "chartDataType": "series",
+            "hide": true
+          },
+          {
+            "field": "liquidity",
+            "headerName": "Liquidity",
+            "cellDataType": "number",
+            "chartDataType": "series",
+            "hide": true
+          },
+          {
+            "field": "updated_time",
+            "headerName": "Updated Time",
+            "cellDataType": "dateString",
+            "chartDataType": "time",
+            "hide": true
+          }
+        ]
+      }
+    }
+  },
+  "event_outcomes": {
+    "name": "Event Outcomes",
+    "description": "All outcomes attached to the selected event. Click an outcome to update the Event Price History selection.",
+    "category": "Kalshi",
+    "type": "table",
+    "endpoint": "event_markets",
+    "gridData": {
+      "w": 24,
+      "h": 15
+    },
+    "source": [
+      "Kalshi"
+    ],
+    "params": [
+      {
+        "paramName": "event_ticker",
+        "type": "endpoint",
+        "groupById": "event_ticker-options",
+        "label": "Event",
+        "optionsEndpoint": "/options",
+        "value": "",
+        "show": false,
+        "optionsParams": {
+          "field": "event_ticker",
+          "category": "$category",
+          "tag": "$tag"
+        }
+      },
+      {
+        "paramName": "category",
+        "type": "endpoint",
+        "groupById": "category-options",
+        "label": "Category",
+        "optionsEndpoint": "/options",
+        "value": "All",
+        "show": true,
+        "optionsParams": {
+          "field": "category"
+        }
+      },
+      {
+        "paramName": "tag",
+        "type": "endpoint",
+        "groupById": "tag-options",
+        "label": "Tag",
+        "optionsEndpoint": "/options",
+        "optionsParams": {
+          "field": "tag",
+          "category": "$category"
+        },
+        "value": "All",
+        "show": true
+      },
+      {
+        "paramName": "history_market_key",
+        "type": "endpoint",
+        "groupById": "history_market_key-options",
+        "label": "History Outcome",
+        "optionsEndpoint": "/options",
+        "value": "__top_3__",
+        "show": false,
+        "optionsParams": {
+          "field": "market_key",
+          "event_ticker": "$event_ticker",
+          "market_key": "$history_market_key",
+          "include_all": "true",
+          "include_top": "true"
+        }
+      }
+    ],
+    "data": {
+      "table": {
+        "showAll": true,
+        "enableCharts": false,
+        "columnsDefs": [
+          {
+            "field": "subtitle",
+            "headerName": "Outcome",
+            "cellDataType": "text",
+            "chartDataType": "category",
+            "pinned": "left",
+            "width": 260,
+            "renderFn": "cellOnClick",
+            "renderFnParams": {
+              "actionType": "groupBy",
+              "groupBy": {
+                "paramName": "history_market_key",
+                "valueField": "market_key"
+              }
+            }
+          },
+          {
+            "field": "last_price_pct",
+            "headerName": "Last %",
+            "cellDataType": "number",
+            "chartDataType": "series",
+            "formatterFn": "none",
+            "width": 100
+          },
+          {
+            "field": "yes_bid_pct",
+            "headerName": "Yes Bid %",
+            "cellDataType": "number",
+            "chartDataType": "series",
+            "formatterFn": "none",
+            "width": 110
+          },
+          {
+            "field": "yes_ask_pct",
+            "headerName": "Yes Ask %",
+            "cellDataType": "number",
+            "chartDataType": "series",
+            "formatterFn": "none",
+            "width": 110
+          },
+          {
+            "field": "spread_points",
+            "headerName": "Spread Pts",
+            "cellDataType": "number",
+            "chartDataType": "series",
+            "formatterFn": "none",
+            "width": 120
+          },
+          {
+            "field": "volume_total",
+            "headerName": "Volume",
+            "cellDataType": "number",
+            "chartDataType": "series",
+            "formatterFn": "int",
+            "width": 120
+          },
+          {
+            "field": "open_interest",
+            "headerName": "Open Interest",
+            "cellDataType": "number",
+            "chartDataType": "series",
+            "formatterFn": "int",
+            "width": 135
+          },
+          {
+            "field": "ticker",
+            "headerName": "Market Ticker",
+            "cellDataType": "text",
+            "chartDataType": "category",
+            "width": 240
+          },
+          {
+            "field": "close_time",
+            "headerName": "Close Time",
+            "cellDataType": "dateString",
+            "chartDataType": "category",
+            "width": 170
+          },
+          {
+            "field": "market_key",
+            "headerName": "Market Key",
+            "cellDataType": "text",
+            "chartDataType": "category",
+            "hide": true
           }
         ]
       }
@@ -402,6 +830,34 @@
     },
     "source": [
       "Kalshi"
+    ],
+    "params": [
+      {
+        "paramName": "event_ticker",
+        "type": "endpoint",
+        "groupById": "event_ticker-options",
+        "label": "Event",
+        "optionsEndpoint": "/options",
+        "value": "",
+        "show": false,
+        "optionsParams": {
+          "field": "event_ticker"
+        }
+      },
+      {
+        "paramName": "market_key",
+        "type": "endpoint",
+        "groupById": "market_key-options",
+        "label": "Market",
+        "optionsEndpoint": "/options",
+        "value": "",
+        "show": false,
+        "optionsParams": {
+          "field": "market_key",
+          "event_ticker": "$event_ticker",
+          "market_key": "$market_key"
+        }
+      }
     ],
     "storage": {
       "mcpUrl": "mcp/"
@@ -423,8 +879,37 @@
     ],
     "params": [
       {
+        "paramName": "event_ticker",
+        "type": "endpoint",
+        "groupById": "event_ticker-options",
+        "label": "Event",
+        "optionsEndpoint": "/options",
+        "value": "",
+        "show": false,
+        "optionsParams": {
+          "field": "event_ticker",
+          "category": "$category",
+          "tag": "$tag"
+        }
+      },
+      {
+        "paramName": "market_key",
+        "type": "endpoint",
+        "groupById": "market_key-options",
+        "label": "Market",
+        "optionsEndpoint": "/options",
+        "value": "",
+        "show": false,
+        "optionsParams": {
+          "field": "market_key",
+          "event_ticker": "$event_ticker",
+          "market_key": "$market_key"
+        }
+      },
+      {
         "paramName": "category",
         "type": "endpoint",
+        "groupById": "category-options",
         "label": "Category",
         "optionsEndpoint": "/options",
         "value": "All",
@@ -436,6 +921,7 @@
       {
         "paramName": "tag",
         "type": "endpoint",
+        "groupById": "tag-options",
         "label": "Tag",
         "optionsEndpoint": "/options",
         "optionsParams": {
@@ -444,32 +930,6 @@
         },
         "value": "All",
         "show": true
-      },
-      {
-        "paramName": "event_ticker",
-        "type": "endpoint",
-        "label": "Event",
-        "optionsEndpoint": "/options",
-        "value": "",
-        "show": true,
-        "optionsParams": {
-          "field": "event_ticker",
-          "category": "$category",
-          "tag": "$tag"
-        }
-      },
-      {
-        "paramName": "market_key",
-        "type": "endpoint",
-        "label": "Market",
-        "optionsEndpoint": "/options",
-        "value": "",
-        "show": true,
-        "optionsParams": {
-          "field": "market_key",
-          "event_ticker": "$event_ticker",
-          "market_key": "$market_key"
-        }
       },
       {
         "paramName": "depth",
@@ -511,8 +971,37 @@
     ],
     "params": [
       {
+        "paramName": "event_ticker",
+        "type": "endpoint",
+        "groupById": "event_ticker-options",
+        "label": "Event",
+        "optionsEndpoint": "/options",
+        "value": "",
+        "show": false,
+        "optionsParams": {
+          "field": "event_ticker",
+          "category": "$category",
+          "tag": "$tag"
+        }
+      },
+      {
+        "paramName": "market_key",
+        "type": "endpoint",
+        "groupById": "market_key-options",
+        "label": "Market",
+        "optionsEndpoint": "/options",
+        "value": "",
+        "show": false,
+        "optionsParams": {
+          "field": "market_key",
+          "event_ticker": "$event_ticker",
+          "market_key": "$market_key"
+        }
+      },
+      {
         "paramName": "category",
         "type": "endpoint",
+        "groupById": "category-options",
         "label": "Category",
         "optionsEndpoint": "/options",
         "value": "All",
@@ -524,6 +1013,7 @@
       {
         "paramName": "tag",
         "type": "endpoint",
+        "groupById": "tag-options",
         "label": "Tag",
         "optionsEndpoint": "/options",
         "optionsParams": {
@@ -532,32 +1022,6 @@
         },
         "value": "All",
         "show": true
-      },
-      {
-        "paramName": "event_ticker",
-        "type": "endpoint",
-        "label": "Event",
-        "optionsEndpoint": "/options",
-        "value": "",
-        "show": true,
-        "optionsParams": {
-          "field": "event_ticker",
-          "category": "$category",
-          "tag": "$tag"
-        }
-      },
-      {
-        "paramName": "market_key",
-        "type": "endpoint",
-        "label": "Market",
-        "optionsEndpoint": "/options",
-        "value": "",
-        "show": true,
-        "optionsParams": {
-          "field": "market_key",
-          "event_ticker": "$event_ticker",
-          "market_key": "$market_key"
-        }
       },
       {
         "paramName": "limit",

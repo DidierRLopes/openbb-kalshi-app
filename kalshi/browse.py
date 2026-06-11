@@ -32,6 +32,16 @@ _BRIDGE_JS = r"""
   var ROWS = JSON.parse(document.getElementById("ob-rowdata").textContent || "[]");
   var CFG = JSON.parse(document.getElementById("ob-cfg").textContent || "{}");
   var PARAM_KEYS = PARAM_DEFS.map(function (p) { return p.paramName; });
+  var GROUP_FILTER_VALUES = {};
+  PARAM_DEFS.forEach(function (p) {
+    if (p.paramName !== "category" && p.paramName !== "tag") return;
+    (p.options || []).forEach(function (opt) {
+      var value = typeof opt === "object" ? opt.value : opt;
+      if (value != null && String(value).trim() && String(value) !== "All") {
+        GROUP_FILTER_VALUES[String(value).toLowerCase()] = true;
+      }
+    });
+  });
 
   var WIDGET_DATA = {};
   MANIFESTS.forEach(function (m) {
@@ -82,16 +92,25 @@ _BRIDGE_JS = r"""
 
   function applyParams(params) {
     if (!params) return;
-    var pairs = [];
+    var incoming = {};
     if (Array.isArray(params)) {
-      pairs = params.map(function (p) { return [p.paramName || p.name, p.value]; });
+      params.forEach(function (p) { incoming[p.paramName || p.name] = p.value; });
     } else if (typeof params === "object") {
-      pairs = Object.keys(params).map(function (k) {
+      Object.keys(params).forEach(function (k) {
         var v = params[k];
-        return [k, (v && typeof v === "object" && "value" in v) ? v.value : v];
+        incoming[k] = (v && typeof v === "object" && "value" in v) ? v.value : v;
       });
     }
     var qs = new URLSearchParams(window.location.search), changed = false;
+    var category = String(incoming.category != null ? incoming.category : (qs.get("category") || ""));
+    var tag = String(incoming.tag != null ? incoming.tag : (qs.get("tag") || ""));
+    var search = String(incoming.search != null ? incoming.search : (qs.get("search") || ""));
+    var grouped = (category && category !== "All") || (tag && tag !== "All");
+    if (grouped && GROUP_FILTER_VALUES[search.toLowerCase()]) {
+      incoming.search = "";
+      emitWidgetParams({ search: "" });
+    }
+    var pairs = Object.keys(incoming).map(function (k) { return [k, incoming[k]]; });
     pairs.forEach(function (pair) {
       var k = pair[0], v = pair[1];
       if (!k || v == null || PARAM_KEYS.indexOf(k) < 0) return;
@@ -99,6 +118,18 @@ _BRIDGE_JS = r"""
       if (qs.get(k) !== s) { qs.set(k, s); changed = true; }
     });
     if (changed) window.location.search = qs.toString();
+  }
+
+  function emitWidgetParams(params) {
+    if (target === window || !params) return;
+    target.postMessage({ type: "openbb:widget-params:update", params: params }, "*");
+  }
+
+  function selectEvent(eventTicker, marketKey) {
+    var params = {};
+    if (eventTicker) params.event_ticker = eventTicker;
+    if (marketKey) params.market_key = marketKey;
+    emitWidgetParams(params);
   }
 
   window.addEventListener("message", function (event) {
@@ -123,10 +154,23 @@ _BRIDGE_JS = r"""
   var gridApi = null;
   function intFmt(p) { return p.value == null ? "" : Number(p.value).toLocaleString(); }
   function pctFmt(p) { return p.value == null ? "" : Number(p.value).toFixed(0) + "%"; }
-  function eventUrl(et) {
+  function eventUrl(et, mk) {
     var u = CFG.base + "/event_details?event_ticker=" + encodeURIComponent(et) + "&theme=" + encodeURIComponent(CFG.theme || "dark");
+    if (mk) u += "&market_key=" + encodeURIComponent(mk);
     if (CFG.back) u += "&back=" + encodeURIComponent(CFG.back);
     return u;
+  }
+  function openEvent(eventTicker, marketKey, replace, emit) {
+    if (!eventTicker) return;
+    if (emit !== false) selectEvent(eventTicker, marketKey);
+    var url = eventUrl(eventTicker, marketKey);
+    if (replace) window.location.replace(url);
+    else window.location.href = url;
+  }
+  if (CFG.selectedEventTicker) {
+    window.setTimeout(function () {
+      openEvent(CFG.selectedEventTicker, CFG.selectedMarketKey || "", true, false);
+    }, 0);
   }
   function buildGrid() {
     if (gridApi || !window.agGrid) return;
@@ -146,7 +190,11 @@ _BRIDGE_JS = r"""
         { headerName: "Closes", field: "close_time", width: 160 },
         { headerName: "Series", field: "series_ticker", width: 140 }
       ],
-      onRowClicked: function (e) { if (e.data && e.data.event_ticker) window.location.href = eventUrl(e.data.event_ticker); }
+      onRowClicked: function (e) {
+        if (e.data && e.data.event_ticker) {
+          openEvent(e.data.event_ticker, e.data.market_key || "", false, true);
+        }
+      }
     });
   }
   function setView(view) {
@@ -164,6 +212,17 @@ _BRIDGE_JS = r"""
   document.getElementById("ob-view-cards").addEventListener("click", function () { setView("cards"); });
   document.getElementById("ob-view-table").addEventListener("click", function () { setView("table"); });
   document.getElementById("ob-csv").addEventListener("click", function () { if (gridApi) gridApi.exportDataAsCsv({ fileName: "kalshi_markets.csv" }); });
+  document.addEventListener("click", function (event) {
+    var targetEl = event.target && event.target.closest ? event.target.closest("a.event[data-event-ticker]") : null;
+    if (!targetEl) return;
+    event.preventDefault();
+    openEvent(
+      targetEl.getAttribute("data-event-ticker"),
+      targetEl.getAttribute("data-market-key") || "",
+      false,
+      true
+    );
+  });
 })();
 """
 
@@ -172,17 +231,19 @@ def _payout(probability_pct: float) -> str:
     return f"{100 / probability_pct:.2f}x" if probability_pct > 0 else "—"
 
 
-def _outcome_html(outcome: dict[str, Any]) -> str:
+def _outcome_html(outcome: dict[str, Any], selected_market_key: str = "") -> str:
     prob = max(0.0, min(100.0, float(outcome.get("probability_pct") or 0)))
     color = outcome.get("color") or "#8b8b94"
     name = escape(str(outcome.get("name") or ""))
     image = outcome.get("image_url") or ""
+    market_key = str(outcome.get("market_key") or "")
+    selected = " selected" if market_key and market_key == selected_market_key else ""
     avatar = (
         f"<span class=\"oc-img\" style=\"background-image:url('{escape(image)}')\"></span>"
         if image else ""
     )
     return f"""
-    <div class="outcome">
+    <div class="outcome{selected}" data-market-key="{escape(market_key)}">
       {avatar}
       <div class="oc-name"><span style="border-color:{escape(color)}">{name}</span></div>
       <div class="oc-payout">{_payout(prob)}</div>
@@ -191,13 +252,20 @@ def _outcome_html(outcome: dict[str, Any]) -> str:
     """
 
 
-def _event_html(event: dict[str, Any], theme: str, base_url: str, back_qs: str) -> str:
+def _event_html(
+    event: dict[str, Any],
+    theme: str,
+    base_url: str,
+    back_qs: str,
+    selected_event_ticker: str = "",
+    selected_market_key: str = "",
+) -> str:
     series = str(event.get("series_ticker") or "")
     thumb = (
         f"<span class=\"ev-img\" style=\"background-image:url('{escape(_SERIES_IMAGE.format(ticker=quote(series)))}')\"></span>"
         if series else '<span class="ev-img"></span>'
     )
-    outcomes = "".join(_outcome_html(o) for o in event.get("outcomes", []))
+    outcomes = "".join(_outcome_html(o, selected_market_key) for o in event.get("outcomes", []))
     more = event.get("market_count", 0) - len(event.get("outcomes", []))
     more_html = f'<div class="more">+{more} more</div>' if more > 0 else ""
     tags = ", ".join(str(t) for t in (event.get("tags") or [])[:3])
@@ -222,11 +290,16 @@ def _event_html(event: dict[str, Any], theme: str, base_url: str, back_qs: str) 
             close_html,
         ) if part
     )
-    href = f'{base_url}/event_details?event_ticker={quote(str(event.get("event_ticker") or ""))}&theme={quote(theme)}'
+    event_ticker = str(event.get("event_ticker") or "")
+    market_key = str((event.get("outcomes") or [{}])[0].get("market_key") or "")
+    href = f"{base_url}/event_details?event_ticker={quote(event_ticker)}&theme={quote(theme)}"
+    if market_key:
+        href += f"&market_key={quote(market_key, safe='')}"
     if back_qs:
         href += f"&back={quote(back_qs, safe='')}"
+    selected = " selected" if event_ticker and event_ticker == selected_event_ticker else ""
     return f"""
-    <a class="event" href="{href}">
+    <a class="event{selected}" href="{href}" data-event-ticker="{escape(event_ticker)}" data-market-key="{escape(market_key)}">
       <header>
         {thumb}
         <div class="ev-head">
@@ -253,11 +326,16 @@ def render_browse(
     theme: str,
     base_url: str = "",
     back_qs: str = "",
+    selected_event_ticker: str = "",
+    selected_market_key: str = "",
 ) -> str:
     is_light = theme == "light"
     grid_theme = "ag-theme-quartz" if is_light else "ag-theme-quartz-dark"
     if events:
-        body = "".join(_event_html(e, theme, base_url, back_qs) for e in events)
+        body = "".join(
+            _event_html(e, theme, base_url, back_qs, selected_event_ticker, selected_market_key)
+            for e in events
+        )
     else:
         hint = f' for "{escape(search)}"' if search else ""
         body = f'<div class="empty">No markets found{hint}.</div>'
@@ -269,7 +347,13 @@ def render_browse(
     rowdata = _emb(rows)
     manifests = _emb(_MANIFESTS)
     params = _emb(param_defs)
-    cfg = _emb({"base": base_url, "theme": theme, "back": back_qs})
+    cfg = _emb({
+        "base": base_url,
+        "theme": theme,
+        "back": back_qs,
+        "selectedEventTicker": selected_event_ticker,
+        "selectedMarketKey": selected_market_key,
+    })
 
     return f"""
 <!doctype html>
@@ -328,6 +412,9 @@ def render_browse(
       background: #eb5757; margin-right: 4px; vertical-align: middle; }}
     .outcomes {{ display: grid; gap: 11px; }}
     .outcome {{ display: flex; align-items: center; gap: 10px; font-size: 13px; }}
+    .event.selected {{ border-color: #21c891; }}
+    .outcome.selected {{ background: color-mix(in srgb, #21c891 14%, transparent);
+      border-radius: 8px; margin: -4px; padding: 4px; }}
     .oc-img {{ flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; background-color: var(--track);
       background-size: cover; background-position: center; background-repeat: no-repeat; }}
     .oc-name {{ flex: 1; min-width: 0; }}

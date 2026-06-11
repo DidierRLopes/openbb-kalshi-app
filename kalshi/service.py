@@ -16,6 +16,22 @@ from kalshi.taxonomy import TaxonomyCache
 
 MAX_CANDLES = 4900
 VALID_CANDLE_INTERVALS = (1, 60, 1440)
+BATCH_CANDLESTICK_MARKETS = 10
+
+
+def _candlestick_params(days: int, period_interval: int) -> dict[str, Any]:
+    interval = period_interval if period_interval in VALID_CANDLE_INTERVALS else 1440
+    max_days = max(1, (MAX_CANDLES * interval) // 1440)
+    bounded_days = max(1, min(int(days), max_days))
+    bucket = interval * 60
+    now = int(datetime.now(timezone.utc).timestamp())
+    end_ts = (now // bucket) * bucket
+    return {
+        "start_ts": end_ts - bounded_days * 86400,
+        "end_ts": end_ts,
+        "period_interval": interval,
+        "include_latest_before_start": "true",
+    }
 
 
 def _candle_points(candles: list[dict[str, Any]]) -> list[tuple[int, float]]:
@@ -23,7 +39,17 @@ def _candle_points(candles: list[dict[str, Any]]) -> list[tuple[int, float]]:
     out: list[tuple[int, float]] = []
     for candle in candles:
         ts = candle.get("end_period_ts")
-        close = (candle.get("price") or {}).get("close_dollars")
+        price = candle.get("price") or {}
+        close = price.get("close_dollars") or price.get("close") or price.get("previous_dollars")
+        if close is None:
+            bid = (candle.get("yes_bid") or {}).get("close_dollars")
+            ask = (candle.get("yes_ask") or {}).get("close_dollars")
+            bid_value = to_float(bid) if bid is not None else None
+            ask_value = to_float(ask) if ask is not None else None
+            if bid_value is not None and ask_value is not None:
+                close = (bid_value + ask_value) / 2
+            else:
+                close = bid_value if bid_value is not None else ask_value
         if ts is not None and close is not None:
             out.append((int(ts), round(to_float(close) * 100, 2)))
     return out
@@ -166,22 +192,10 @@ class MarketDataService:
         days: int,
         period_interval: int,
     ) -> list[dict[str, Any]]:
-        interval = period_interval if period_interval in VALID_CANDLE_INTERVALS else 1440
-        max_days = max(1, (MAX_CANDLES * interval) // 1440)
-        bounded_days = max(1, min(int(days), max_days))
-        bucket = interval * 60
-        now = int(datetime.now(timezone.utc).timestamp())
-        end_ts = (now // bucket) * bucket
-        start_ts = end_ts - bounded_days * 86400
         try:
             data = await self._client.get(
                 f"/series/{series_ticker}/markets/{market_ticker}/candlesticks",
-                {
-                    "start_ts": start_ts,
-                    "end_ts": end_ts,
-                    "period_interval": interval,
-                    "include_latest_before_start": "true",
-                },
+                _candlestick_params(days, period_interval),
                 ttl=30,
             )
         except HTTPException as exc:
@@ -190,6 +204,54 @@ class MarketDataService:
             raise
         candles = data.get("candlesticks")
         return candles if isinstance(candles, list) else []
+
+    async def fetch_batch_candlesticks(
+        self,
+        market_tickers: list[str],
+        days: int,
+        period_interval: int,
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Candlesticks for many market tickers, keyed by market ticker."""
+        tickers = [ticker for ticker in dict.fromkeys(market_tickers) if ticker]
+        if not tickers:
+            return {}
+        chunks = [
+            tickers[i : i + BATCH_CANDLESTICK_MARKETS]
+            for i in range(0, len(tickers), BATCH_CANDLESTICK_MARKETS)
+        ]
+        base_params = _candlestick_params(days, period_interval)
+
+        async def fetch(chunk: list[str]) -> dict[str, list[dict[str, Any]]]:
+            try:
+                data = await self._client.get(
+                    "/markets/candlesticks",
+                    {**base_params, "market_tickers": ",".join(chunk)},
+                    ttl=30,
+                )
+            except HTTPException as exc:
+                if exc.status_code == 400 and len(chunk) > 1:
+                    midpoint = max(1, len(chunk) // 2)
+                    left = await fetch(chunk[:midpoint])
+                    right = await fetch(chunk[midpoint:])
+                    return {**left, **right}
+                if exc.status_code in (400, 404):
+                    return {}
+                raise
+            output: dict[str, list[dict[str, Any]]] = {}
+            for requested_ticker, entry in zip(chunk, data.get("markets") or []):
+                ticker = entry.get("market_ticker") or entry.get("ticker") or requested_ticker
+                candles = entry.get("candlesticks")
+                if ticker and isinstance(candles, list):
+                    output[ticker] = candles
+            return output
+
+        pages = []
+        for chunk in chunks:
+            pages.append(await fetch(chunk))
+        merged: dict[str, list[dict[str, Any]]] = {}
+        for page in pages:
+            merged.update(page)
+        return merged
 
     async def effective_series_ticker(
         self,
@@ -220,6 +282,8 @@ class MarketDataService:
         markets: list[dict[str, Any]],
         top_n: int = 3,
         pinned_ticker: str = "",
+        *,
+        include_intraday: bool = True,
     ) -> list[dict[str, Any]]:
         """YES-probability series for the top markets of an event."""
         ranked = sorted(
@@ -232,22 +296,36 @@ class MarketDataService:
             pinned = next((m for m in markets if m.get("ticker") == pinned_ticker), None)
             if pinned:
                 chosen = [*chosen, pinned]
-        limiter = asyncio.Semaphore(2)
+        max_concurrent_requests = max(2, min(16, int(self._settings.rate_limit_per_sec * 2)))
+        limiter = asyncio.Semaphore(max_concurrent_requests)
         cutoff = datetime.now(timezone.utc).timestamp() - 86400
+        batch_hourly: dict[str, list[dict[str, Any]]] = {}
+        if not include_intraday:
+            batch_hourly = await self.fetch_batch_candlesticks(
+                [m.get("ticker", "") for m in chosen],
+                30,
+                60,
+            )
+
+        async def candles(ticker: str, days: int, period_interval: int) -> list[dict[str, Any]]:
+            async with limiter:
+                try:
+                    return await self.fetch_candlesticks(series_ticker, ticker, days, period_interval)
+                except HTTPException:
+                    return []
 
         async def history(market: dict[str, Any]) -> dict[str, Any]:
             ticker = market.get("ticker", "")
-            async with limiter:
-                try:
-                    minute = await self.fetch_candlesticks(series_ticker, ticker, 1, 1)
-                except HTTPException:
-                    minute = []
-                try:
-                    hourly = await self.fetch_candlesticks(series_ticker, ticker, 30, 60)
-                except HTTPException:
-                    hourly = []
-            by_ts: dict[int, float] = {ts: val for ts, val in _candle_points(hourly) if ts < cutoff}
-            by_ts.update(dict(_candle_points(minute)))
+            if include_intraday:
+                hourly_task = candles(ticker, 30, 60)
+                hourly, minute = await asyncio.gather(hourly_task, candles(ticker, 1, 1))
+                by_ts: dict[int, float] = {
+                    ts: val for ts, val in _candle_points(hourly) if ts < cutoff
+                }
+                by_ts.update(dict(_candle_points(minute)))
+            else:
+                hourly = batch_hourly.get(ticker, [])
+                by_ts = dict(_candle_points(hourly))
             return {
                 "ticker": ticker,
                 "name": market.get("yes_sub_title") or market.get("subtitle") or ticker,

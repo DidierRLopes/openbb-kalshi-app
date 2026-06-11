@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 from urllib.parse import quote
 
@@ -9,6 +10,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from kalshi import charts
+from kalshi.constants import TOP_HISTORY_MARKET_COUNT, TOP_HISTORY_MARKET_KEY
 from kalshi.dependencies import get_service, get_stats, get_taxonomy, resolve_base_url
 from kalshi.event_page import render_event_page
 from kalshi.formatting import compact_number, parse_market_key, timestamp_to_iso
@@ -19,15 +21,31 @@ from kalshi.transforms import market_row
 
 router = APIRouter()
 
+_HISTORY_FIELD_RE = re.compile(r"[^0-9A-Za-z]+")
+
+_EVENT_MARKETS_FIELDS = (
+    "subtitle",
+    "last_price_pct",
+    "yes_bid_pct",
+    "yes_ask_pct",
+    "spread_points",
+    "volume_total",
+    "open_interest",
+    "ticker",
+    "close_time",
+    "market_key",
+)
+
 
 async def effective_event_ticker(
     event_ticker: str = Query(""),
     category: str = Query(ALL),
+    tag: str = Query(ALL),
     stats: MarketStatsCache = Depends(get_stats),
 ) -> str:
     """The selected event, or the most active one in scope."""
     ticker = (event_ticker or "").strip()
-    return ticker or await stats.default_event_ticker(category=category)
+    return ticker or await stats.default_event_ticker(category=category, tag=tag)
 
 
 @router.get("/event_metrics")
@@ -83,11 +101,15 @@ async def event_markets(
         return []
     selected = await service.resolve_event(event_ticker=event_ticker)
     rows = [market_row(m, selected["series_ticker"]) for m in selected["markets"]]
-    return sorted(
+    sorted_rows = sorted(
         rows,
         key=lambda row: (row["volume_24h"], row["volume_total"], row["last_price_pct"]),
         reverse=True,
     )
+    return [
+        {field: row.get(field) for field in _EVENT_MARKETS_FIELDS}
+        for row in sorted_rows
+    ]
 
 
 @router.get("/event_details")
@@ -173,32 +195,104 @@ async def event_chart(
     return JSONResponse(content=figure or charts.empty_figure("No price history available", theme))
 
 
+def _history_market_selection(history_market_key: Any) -> tuple[str, set[str]]:
+    raw_values = history_market_key if isinstance(history_market_key, list) else [history_market_key]
+    values = [
+        part.strip()
+        for value in raw_values
+        for part in str(value or TOP_HISTORY_MARKET_KEY).split(",")
+        if part and part.strip()
+    ]
+    if any(value == ALL for value in values):
+        return "all", set()
+
+    tickers = {
+        parsed["market_ticker"]
+        for parsed in (parse_market_key(value) for value in values)
+        if parsed["market_ticker"]
+    }
+    if tickers:
+        return "selected", tickers
+
+    return "top", set()
+
+
+def _history_outcome_field(name: Any, ticker: Any, used: set[str]) -> str:
+    label = str(name or ticker or "outcome").strip()
+    base = _HISTORY_FIELD_RE.sub("_", label.lower()).strip("_") or "outcome"
+    if base[0].isdigit():
+        base = f"outcome_{base}"
+
+    field = base
+    counter = 2
+    ticker_slug = _HISTORY_FIELD_RE.sub("_", str(ticker or "").lower()).strip("_")
+    while field in used:
+        if ticker_slug:
+            candidate = f"{base}_{ticker_slug}"
+            if candidate not in used:
+                field = candidate
+                break
+        field = f"{base}_{counter}"
+        counter += 1
+    used.add(field)
+    return field
+
+
 @router.get("/event_history_chart")
 async def event_history_chart(
     event_ticker: str = Depends(effective_event_ticker),
-    market_key: str = Query(""),
+    history_market_key: list[str] | None = Query(None),
     theme: str = Query("dark"),
     raw: bool = Query(False),
     service: MarketDataService = Depends(get_service),
 ) -> Any:
     if not event_ticker:
-        return [] if raw else JSONResponse(content=charts.empty_figure("No active events", theme))
+        return []
     selected = await service.resolve_event(event_ticker=event_ticker)
-    pinned = parse_market_key(market_key)["market_ticker"] if (market_key or "").strip() else ""
+    history_mode, selected_market_tickers = _history_market_selection(history_market_key)
+    history_markets = selected["markets"]
+    if history_mode == "selected":
+        history_markets = [
+            market for market in selected["markets"]
+            if market.get("ticker") in selected_market_tickers
+        ]
+        if not history_markets:
+            history_mode = "top"
+            history_markets = selected["markets"]
+    top_n = (
+        len(history_markets)
+        if history_mode in {"all", "selected"}
+        else TOP_HISTORY_MARKET_COUNT
+    )
     histories = await service.outcome_histories(
-        selected["series_ticker"], selected["markets"], pinned_ticker=pinned
+        selected["series_ticker"],
+        history_markets,
+        top_n=top_n,
+        include_intraday=history_mode in {"selected", "top"} or len(history_markets) <= 12,
     )
     lines = [
-        {"name": h["name"], "points": h["points"]}
+        {"name": h["name"], "ticker": h["ticker"], "points": h["points"]}
         for h in histories
         if h["points"]
     ]
-    if raw:
-        return [
-            {"time": timestamp_to_iso(ts), "outcome": line["name"], "probability_pct": value}
-            for line in lines
-            for ts, value in line["points"]
-        ]
-    if not lines:
-        return JSONResponse(content=charts.empty_figure("No price history available", theme))
-    return JSONResponse(content=charts.outcome_history(lines, theme))
+    used_fields: set[str] = set()
+    outcome_fields = [
+        _history_outcome_field(line["name"], line["ticker"], used_fields)
+        for line in lines
+    ]
+    rows_by_time: dict[str, dict[str, Any]] = {}
+    for line, field in zip(lines, outcome_fields, strict=True):
+        for ts, value in line["points"]:
+            time = timestamp_to_iso(ts)
+            if not time:
+                continue
+            row = rows_by_time.setdefault(time, {"time": time})
+            row[field] = value
+
+    rows: list[dict[str, Any]] = []
+    for time in sorted(rows_by_time):
+        row = rows_by_time[time]
+        for field in outcome_fields:
+            row.setdefault(field, None)
+        rows.append(row)
+    return rows

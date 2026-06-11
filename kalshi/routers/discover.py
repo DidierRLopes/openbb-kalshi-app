@@ -45,20 +45,58 @@ def _event_row(event: dict[str, Any]) -> dict[str, Any]:
         "volume_total": event.get("volume_total", 0),
         "open_interest": event.get("open_interest", 0),
         "close_time": event.get("close_time", ""),
+        "market_key": top.get("market_key", ""),
     }
 
 
-async def _browse_param_defs(taxonomy: TaxonomyCache) -> list[dict[str, Any]]:
+def _short(value: Any, max_len: int = 88) -> str:
+    text = str(value or "")
+    return text if len(text) <= max_len else f"{text[: max_len - 3]}..."
+
+
+async def _browse_param_defs(
+    taxonomy: TaxonomyCache,
+    events: list[dict[str, Any]],
+    event_ticker: str,
+    market_key: str,
+) -> list[dict[str, Any]]:
     """Toolbar param definitions for the browse iframe."""
     categories = [{"label": "All categories", "value": "All"}]
     categories += [{"label": c["category"], "value": c["category"]} for c in await taxonomy.categories()]
     tags = [{"label": "All tags", "value": "All"}]
     tags += [{"label": t["tag"], "value": t["tag"]} for t in await taxonomy.tags()]
+
+    event_options = []
+    market_options = []
+    for event in events:
+        ticker = str(event.get("event_ticker") or "")
+        if not ticker:
+            continue
+        event_options.append({
+            "label": f"{_short(event.get('title') or ticker)} ({ticker})",
+            "value": ticker,
+        })
+        for outcome in event.get("outcomes") or []:
+            outcome_market_key = str(outcome.get("market_key") or "")
+            if not outcome_market_key:
+                continue
+            market_options.append({
+                "label": f"{_short(outcome.get('name') or outcome_market_key, 64)} ({ticker})",
+                "value": outcome_market_key,
+            })
+
+    if event_ticker and not any(option["value"] == event_ticker for option in event_options):
+        event_options.insert(0, {"label": event_ticker, "value": event_ticker})
+
     return [
         {"paramName": "search", "label": "Search", "type": "text", "value": "",
          "description": "Filter events by title, tag, or ticker"},
         {"paramName": "category", "label": "Category", "type": "text", "value": "All", "options": categories},
         {"paramName": "tag", "label": "Tag", "type": "text", "value": "All", "options": tags},
+        {"paramName": "event_ticker", "label": "Event", "type": "text", "value": event_ticker,
+         "description": "Selected event shared with the dashboard", "options": event_options},
+        {"paramName": "market_key", "label": "Market", "type": "text", "value": market_key,
+         "description": "Selected market shared with market widgets", "options": market_options},
         {"paramName": "sort", "label": "Sort", "type": "text", "value": "trending", "options": [
             {"label": "Trending", "value": "trending"}, {"label": "Volatile", "value": "volatile"},
             {"label": "New", "value": "new"}, {"label": "Closing soon", "value": "closing_soon"},
@@ -87,6 +125,43 @@ def _days(close_within: str) -> int | None:
         return int(value)
     except ValueError:
         return None
+
+
+def _volume_table_rows(
+    rows: list[dict[str, Any]],
+    *,
+    group_by: str,
+    category: str,
+    tag: str,
+) -> list[dict[str, Any]]:
+    selected_category = (category or "").strip()
+    selected_tag = (tag or "").strip()
+    category_value = selected_category if selected_category not in ("", "All") else "All"
+    tag_value = selected_tag if selected_tag not in ("", "All") else "All"
+
+    table_rows: list[dict[str, Any]] = []
+    for row in rows:
+        label = str(row.get("category") or "")
+        if tag_value != "All":
+            row_category = category_value
+            row_tag = tag_value
+        elif category_value != "All":
+            row_category = category_value
+            row_tag = label
+        elif group_by == "tag":
+            row_category = "All"
+            row_tag = label
+        else:
+            row_category = label
+            row_tag = "All"
+
+        table_rows.append({
+            **row,
+            "label": label,
+            "category": row_category,
+            "tag": row_tag,
+        })
+    return table_rows
 
 
 @router.get("/volume_by_category")
@@ -124,7 +199,7 @@ async def volume_by_category(
             rows = rows[:20]
 
     if raw:
-        return rows
+        return _volume_table_rows(rows, group_by=group_by, category=category, tag=tag)
     if not rows:
         return JSONResponse(content=charts.empty_figure("No open markets in range", theme))
     return JSONResponse(content=charts.category_volume(rows, metric, label, theme))
@@ -139,6 +214,8 @@ async def browse_markets(
     sort: str = Query("trending"),
     frequency: str = Query("all"),
     close_within: str = Query(""),
+    event_ticker: str = Query(""),
+    market_key: str = Query(""),
     reverse: bool = Query(False),
     limit: int = Query(40, ge=1, le=150),
     theme: str = Query("dark"),
@@ -179,7 +256,9 @@ async def browse_markets(
     back_qs = urlencode({k: v for k, v in filters.items() if v})
     html = render_browse(
         events, rows=[_event_row(event) for event in events],
-        param_defs=await _browse_param_defs(taxonomy),
+        param_defs=await _browse_param_defs(taxonomy, events, event_ticker, market_key),
         total=total, search=search, theme=theme, base_url=base_url, back_qs=back_qs,
+        selected_event_ticker=event_ticker or parse_market_key(market_key)["event_ticker"],
+        selected_market_key=market_key,
     )
     return HTMLResponse(content=html)

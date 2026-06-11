@@ -17,7 +17,10 @@
             "y": 2,
             "w": 40,
             "h": 16,
-            "groups": [],
+            "groups": [
+              "Group 4",
+              "Group 5"
+            ],
             "state": {
               "params": {
                 "metric": "volume_total",
@@ -32,12 +35,18 @@
             "y": 18,
             "w": 40,
             "h": 28,
-            "groups": [],
+            "groups": [
+              "Group 1",
+              "Group 2",
+              "Group 4",
+              "Group 5"
+            ],
             "state": {
               "params": {
                 "search": "",
                 "category": "All",
                 "tag": "All",
+                "market_key": "",
                 "sort": "trending"
               }
             }
@@ -59,25 +68,25 @@
             ]
           },
           {
-            "i": "event_history_chart",
+            "i": "event_outcomes",
             "x": 0,
             "y": 6,
             "w": 40,
             "h": 15,
             "groups": [
               "Group 1",
-              "Group 2"
+              "Group 3"
             ]
           },
           {
-            "i": "event_markets",
+            "i": "event_history_chart",
             "x": 0,
             "y": 21,
             "w": 40,
             "h": 15,
             "groups": [
               "Group 1",
-              "Group 2"
+              "Group 3"
             ]
           }
         ]
@@ -140,8 +149,10 @@
         "paramName": "event_ticker",
         "defaultValue": "",
         "widgetIds": [
+          "browse_markets",
           "event_metrics",
           "event_history_chart",
+          "event_outcomes",
           "event_markets",
           "market_brief",
           "orderbook_ladder",
@@ -154,11 +165,41 @@
         "paramName": "market_key",
         "defaultValue": "",
         "widgetIds": [
+          "browse_markets",
           "event_markets",
           "market_brief",
           "orderbook_ladder",
-          "selected_trades",
+          "selected_trades"
+        ]
+      },
+      {
+        "name": "Group 3",
+        "type": "endpointParam",
+        "paramName": "history_market_key",
+        "defaultValue": "__top_3__",
+        "widgetIds": [
+          "event_outcomes",
           "event_history_chart"
+        ]
+      },
+      {
+        "name": "Group 4",
+        "type": "endpointParam",
+        "paramName": "category",
+        "defaultValue": "All",
+        "widgetIds": [
+          "volume_by_category",
+          "browse_markets"
+        ]
+      },
+      {
+        "name": "Group 5",
+        "type": "endpointParam",
+        "paramName": "tag",
+        "defaultValue": "All",
+        "widgetIds": [
+          "volume_by_category",
+          "browse_markets"
         ]
       }
     ],

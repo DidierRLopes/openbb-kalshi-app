@@ -42,16 +42,22 @@ async def root(request: Request) -> dict[str, str]:
     }
 
 
-def _resolve_iframe_endpoints(manifest: dict[str, Any], base_url: str) -> dict[str, Any]:
-    """Resolve iframe widget endpoints and mcpUrls to absolute URLs."""
+def _resolve_widget_endpoints(manifest: dict[str, Any], base_url: str) -> dict[str, Any]:
+    """Resolve widget endpoint URLs, option endpoints, and mcpUrls to absolute URLs."""
     resolved = deepcopy(manifest)
     base = base_url.rstrip("/")
     for widget in resolved.values():
-        if not (isinstance(widget, dict) and widget.get("type") == "iframe"):
+        if not isinstance(widget, dict):
             continue
         endpoint = str(widget.get("endpoint", "")).strip()
         if endpoint and not endpoint.startswith(("http://", "https://")):
             widget["endpoint"] = f"{base}/{endpoint.lstrip('/')}"
+        for param in widget.get("params", []):
+            if not isinstance(param, dict):
+                continue
+            options_endpoint = str(param.get("optionsEndpoint", "")).strip()
+            if options_endpoint and not options_endpoint.startswith(("http://", "https://")):
+                param["optionsEndpoint"] = f"{base}/{options_endpoint.lstrip('/')}"
         storage = widget.get("storage")
         if isinstance(storage, dict):
             mcp_url = str(storage.get("mcpUrl", "")).strip()
@@ -114,7 +120,7 @@ async def widgets(
     stats: MarketStatsCache = Depends(get_stats),
     service: MarketDataService = Depends(get_service),
 ) -> JSONResponse:
-    manifest = _resolve_iframe_endpoints(_load_manifest("widgets.json"), resolve_base_url(request))
+    manifest = _resolve_widget_endpoints(_load_manifest("widgets.json"), resolve_base_url(request))
     _apply_value_defaults(manifest, await _selection_defaults(stats, service))
     return JSONResponse(content=manifest)
 
