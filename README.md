@@ -2,13 +2,23 @@
 
 OpenBB Workspace backend for public Kalshi prediction-market data.
 
-The app exposes a FastAPI backend that OpenBB Workspace can register as a
-custom data connector. Workspace reads `widgets.json` for widget definitions and
-`apps.json` for the prebuilt `Kalshi Event Explorer` app layout.
+A FastAPI backend that OpenBB Workspace registers as a custom data connector.
+Workspace reads `widgets.json` for the widget definitions and `apps.json` for
+the prebuilt **Kalshi Market Explorer** app layout.
+
+Every parameter choice in the app (category → tag → series → event → market) is
+derived from a single cached **taxonomy** built from two Kalshi endpoints:
+
+- [`GET /series`](https://docs.kalshi.com/api-reference/market/get-series-list) —
+  the full catalog of series, each with its category, tags, and traded volume.
+- [`GET /search/tags_by_categories`](https://docs.kalshi.com/api-reference/search/get-tags-for-series-categories) —
+  the canonical mapping of category → tags.
+
+Because the choice lists come from this cache rather than from re-scanning live
+endpoints, filtering by category and tag is fast, complete, and always
+consistent with the data shown in the tables.
 
 ## Quick Start
-
-From this app directory:
 
 ```bash
 python -m venv .venv
@@ -17,142 +27,154 @@ pip install -r requirements.txt
 uvicorn main:app --reload --port 7779
 ```
 
-Then add this backend URL in OpenBB Workspace:
+Then add the backend URL in OpenBB Workspace → **Settings → Data Connectors →
+Add Custom Backend**:
 
 ```text
 http://localhost:7779
 ```
 
-Workspace will load:
+Workspace loads `widgets.json` and `apps.json` from that URL automatically.
+Open **Apps** and launch **Kalshi Market Explorer**.
 
-- `widgets.json` from `http://localhost:7779/widgets.json`
-- `apps.json` from `http://localhost:7779/apps.json`
+## Project Layout
 
-## Adding to OpenBB Workspace
+The backend is a small package instead of one monolithic file:
 
-1. Open OpenBB Workspace.
-2. Go to **Settings** > **Data Connectors**.
-3. Click **Add Custom Backend**.
-4. Enter `http://localhost:7779`.
-5. Open **Apps** and launch `Kalshi Event Explorer`.
+```
+main.py                  # thin entry point: exposes `app` for `uvicorn main:app`
+kalshi/
+├── app.py               # application factory: wiring + CORS + routers
+├── config.py            # Settings loaded from the environment (.env optional)
+├── client.py            # cached async httpx wrapper around the Kalshi API
+├── taxonomy.py          # TaxonomyCache: categories/tags/series from 2 endpoints
+├── service.py           # fetch + resolve logic with live, volume-based fallbacks
+├── transforms.py        # raw Kalshi objects → flat widget rows
+├── formatting.py        # pure value/format helpers + market_key codec
+├── charts.py            # Plotly figure builders
+├── ladder.py            # HTML orderbook-ladder widget
+├── dependencies.py      # FastAPI accessors for the shared singletons
+└── routers/
+    ├── meta.py          # health, manifests, thumbnail, exchange status
+    ├── options.py       # the category → tag → series → event → market cascade
+    ├── discover.py      # 24h volume by category, top markets
+    ├── series.py        # series catalog table
+    ├── events.py        # event discovery, metrics, brief, markets
+    └── markets.py       # probability, rules, orderbook, trades, price history
+```
 
-If the backend is hosted somewhere else, use that deployed base URL instead of
-`http://localhost:7779`.
+A `MarketStatsCache` (`kalshi/stats.py`) pages the full open-market book once in
+the background (multivariate markets excluded), maps each market to a category
+via its series prefix, and keeps the active subset in memory. The Discover
+widgets serve from that snapshot instantly; a startup warmer and TTL keep it
+fresh without blocking.
 
-## App Workflow
+## How the Cascade Works
 
-`Kalshi Event Explorer` is event-first:
+Each dropdown is populated by an options endpoint that depends only on the
+choice above it, and every data widget falls back to the most active live
+instrument when nothing is selected (so the dashboard never depends on a
+hardcoded ticker that goes stale when a market settles):
 
-1. Browse live Kalshi events by readable title, category, or search regex.
-2. Click an event to update the event summary and event markets.
-3. Click a market row to update probability, orderbook, trades, and history.
-4. Use raw table views when you need inspectable rows instead of charts.
+| Choice | Endpoint | Derived from |
+|--------|----------|--------------|
+| Category | `/category_options` | taxonomy (series catalog) |
+| Tag | `/tag_options?category=` | taxonomy (tags-by-category + series) |
+| Series | `/series_options?category=&tag=` | taxonomy (filtered series) |
+| Event | `/event_options?series_ticker=` | live `/events` for the series |
+| Market | `/market_options?event_ticker=` | live markets for the event |
 
-The app uses two Workspace endpoint-parameter groups:
-
-| Group | Parameter | Default |
-|-------|-----------|---------|
-| Group 1 | `event_ticker` | `EVSHARE-30JAN` |
-| Group 2 | `market_key` | `KXEVSHARE\|EVSHARE-30JAN-20\|EVSHARE-30JAN` |
-
-`market_key` is encoded as `series_ticker|market_ticker|event_ticker`.
+`market_key` is the opaque value passed between market widgets, encoded as
+`series_ticker|market_ticker|event_ticker`.
 
 ## Dashboard Tabs
 
 | Tab | Widgets |
 |-----|---------|
-| Events | Event Discovery, Selected Event Metrics, Selected Event Brief |
-| Markets | Event Markets, YES / NO Probability, Probability Snapshot, Market Rules |
-| Market Detail | Orderbook Ladder, Trade Tape |
-| History | Price History Chart |
+| Discover | 24h Volume by Category, Top Markets, Browse Markets |
+| Catalog | Series Catalog, Event Discovery |
+| Event | Selected Event Metrics, Event Markets |
+| Market | YES/NO Probability, Probability Snapshot, Market Rules & Details, Orderbook Depth, Orderbook |
+| Orderbook & Trades | Orderbook Ladder, Trade Tape |
+| History | Price History Chart, Historical Prices |
+
+**Browse Markets** is an HTML widget that searches and lists active markets as
+event cards (leading outcomes, probabilities, volume, and per-outcome
+thumbnails). Clicking a card opens a full **event details** page
+(`/event_details`) in a new tab. Outcome images and accent colours come from
+Kalshi's batched cards endpoint (`/v1/bff/cards`), fetched once per page and
+cached; they degrade gracefully to plain cards if unavailable.
+
+**Top Markets** ranks the most active open markets by 24h volume, open interest,
+or total volume, filterable by category and by how soon the market resolves
+(`Closes Within`), and shows each market's current YES probability and bid/ask.
+Click a market to load it across the dashboard, or click the event ticker to
+inspect the event.
 
 ## Configuration
 
-Environment variables are optional. Copy `.env.example` to `.env` if you want to
-override defaults:
+All settings are optional. Copy `.env.example` to `.env` to override defaults
+(loaded automatically via `python-dotenv`):
 
 ```bash
 cp .env.example .env
 ```
 
-Available settings:
-
-```bash
-KALSHI_API_BASE_URL=https://external-api.kalshi.com/trade-api/v2
-KALSHI_CACHE_TTL_SECONDS=30
-KALSHI_DEFAULT_EVENT_TICKER=KXELONMARS-99
-KALSHI_DEFAULT_MARKET_KEY=KXELONMARS|KXELONMARS-99|KXELONMARS-99
-```
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `KALSHI_API_BASE_URL` | `https://api.elections.kalshi.com/trade-api/v2` | Kalshi public API base |
+| `KALSHI_HTTP_TIMEOUT` | `20` | Request timeout (seconds) |
+| `KALSHI_QUOTE_TTL_SECONDS` | `30` | Cache TTL for markets/events/status |
+| `KALSHI_REALTIME_TTL_SECONDS` | `10` | Cache TTL for orderbook/trades |
+| `KALSHI_TAXONOMY_TTL_SECONDS` | `600` | Cache TTL for the series/tag taxonomy |
 
 ## API Endpoints
 
 | Endpoint | Description |
 |----------|-------------|
 | `GET /` | Health check and backend metadata |
-| `GET /widgets.json` | OpenBB Workspace widget definitions |
-| `GET /apps.json` | OpenBB Workspace app layout |
+| `GET /widgets.json` | Workspace widget definitions |
+| `GET /apps.json` | Workspace app layout |
 | `GET /thumbnail.svg` | App thumbnail |
-| `GET /event_options` | Event dropdown options |
-| `GET /event_category_options` | Event category dropdown options |
-| `GET /market_options` | Market dropdown options |
-| `GET /exchange_status` | Exchange and trading status metrics |
-| `GET /events_table` | Searchable event discovery table |
+| `GET /category_options` | Category choices (taxonomy) |
+| `GET /tag_options` | Tag choices for a category (taxonomy) |
+| `GET /series_options` | Series choices for a category/tag (taxonomy) |
+| `GET /event_options` | Event choices for a series |
+| `GET /market_options` | Market choices for an event |
+| `GET /volume_by_category` | 24h volume / open interest by category (chart) |
+| `GET /top_markets` | Most active markets by category / metric / close window |
+| `GET /browse_markets` | HTML event-card browser with global search and thumbnails |
+| `GET /event_details` | Full HTML event page (opened from a Browse Markets card) |
+| `GET /series_table` | Series catalog filtered by category/tag |
+| `GET /events_table` | Event discovery for a series |
 | `GET /event_metrics` | Selected event metric strip |
-| `GET /event_brief` | Selected event markdown summary |
 | `GET /event_markets` | Markets for the selected event |
-| `GET /market_probability_gauge` | YES / NO probability chart |
-| `GET /market_probability_table` | Selected market probability table |
+| `GET /market_metrics` | Selected market metric strip |
 | `GET /market_brief` | Selected market rules and metadata |
+| `GET /market_probability_gauge` | YES/NO probability chart (`raw=true` for rows) |
+| `GET /market_probability_table` | Selected market probability table |
 | `GET /market_orderbook` | Selected market orderbook table |
 | `GET /orderbook_depth_chart` | Two-sided orderbook depth chart |
-| `GET /orderbook_ladder` | HTML orderbook ladder |
+| `GET /orderbook_ladder` | HTML orderbook ladder (`raw=true` for rows) |
 | `GET /selected_trades` | Recent trades for the selected market |
 | `GET /recent_trades` | Recent public trades sample |
-| `GET /market_price_chart` | Selected market price and volume chart |
+| `GET /market_price_chart` | Selected market price/volume chart (`raw=true` for rows) |
 | `GET /market_history_table` | Selected market historical rows |
-| `GET /featured_markets` | High-activity market table |
-| `GET /series_table` | Kalshi series metadata catalog |
-
-## Widgets
-
-| Widget | Type | Endpoint |
-|--------|------|----------|
-| Exchange Status | metric | `exchange_status` |
-| Event Discovery | table | `events_table` |
-| Selected Event Metrics | metric | `event_metrics` |
-| Selected Event Brief | markdown | `event_brief` |
-| Event Markets | table | `event_markets` |
-| YES / NO Probability | chart | `market_probability_gauge` |
-| Probability Snapshot | table | `market_probability_table` |
-| Market Rules | markdown | `market_brief` |
-| Orderbook | table | `market_orderbook` |
-| Orderbook Depth | chart | `orderbook_depth_chart` |
-| Orderbook Ladder | html | `orderbook_ladder` |
-| Trade Tape | table | `selected_trades` |
-| Price History Chart | chart | `market_price_chart` |
-| Historical Prices | table | `market_history_table` |
-| Series Catalog | table | `series_table` |
 
 ## Data Source and Safety
 
-The backend uses Kalshi public market-data endpoints. It does not submit orders,
-read portfolio data, or require Kalshi credentials. Responses are cached in
-memory for short intervals to reduce repeated API calls.
+The backend uses only Kalshi public market-data endpoints. It does not submit
+orders, read portfolio data, or require Kalshi credentials. Responses are cached
+in memory for short intervals to reduce repeated API calls.
 
 ## Validate Locally
 
-With the server running, check the core Workspace files:
+With the server running:
 
 ```bash
 curl http://localhost:7779/
 curl http://localhost:7779/widgets.json
-curl http://localhost:7779/apps.json
-```
-
-If this app is inside the `backend-examples-for-openbb-workspace` repository,
-you can also run the shared validators from that repository root:
-
-```bash
-python scripts/validate_app.py apps/kalshi-market-dashboard
-python scripts/validate_endpoints.py apps/kalshi-market-dashboard --base-url http://localhost:7779
+curl "http://localhost:7779/category_options"
+curl "http://localhost:7779/tag_options?category=Economics"
+curl "http://localhost:7779/series_options?category=Economics&tag=Inflation"
 ```

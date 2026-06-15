@@ -1,162 +1,223 @@
 {
-  "exchange_status": {
-    "name": "Exchange Status",
-    "description": "Kalshi exchange and trading status with recent activity metrics.",
-    "category": "Kalshi",
-    "type": "metric",
-    "endpoint": "exchange_status",
-    "gridData": {
-      "w": 40,
-      "h": 5
-    },
-    "source": [
-      "Kalshi"
-    ],
-    "refetchInterval": 30000
-  },
-  "events_table": {
-    "name": "Event Discovery",
-    "description": "Browse Kalshi events by human-readable name. Filter by available category and regex before the row limit is applied, then click an event name to update the rest of the dashboard.",
+  "volume_by_category": {
+    "name": "Volume by Category",
+    "description": "Aggregated open-market activity grouped by Kalshi category or tag. Toggle the metric (24h volume, open interest, total volume) and restrict to markets resolving within a window.",
     "category": "Kalshi",
     "type": "table",
-    "endpoint": "events_table",
+    "endpoint": "volume_by_category",
+    "raw": true,
     "gridData": {
-      "w": 26,
-      "h": 22
+      "w": 40,
+      "h": 20
     },
     "source": [
       "Kalshi"
     ],
     "params": [
       {
-        "paramName": "status",
+        "paramName": "selection",
+        "type": "endpoint",
+        "groupById": "selection-options",
+        "label": "Category / Tag / Event",
+        "optionsEndpoint": "/options/selection-options",
+        "value": "All",
+        "show": false,
+        "optionsParams": {
+          "field": "selection",
+          "selection": "$selection"
+        }
+      },
+      {
+        "paramName": "group_by",
         "type": "text",
-        "label": "Status",
-        "value": "open",
+        "label": "Group By",
+        "value": "category",
         "options": [
           {
-            "label": "Open",
-            "value": "open"
+            "label": "Category",
+            "value": "category"
           },
           {
-            "label": "Unopened",
-            "value": "unopened"
-          },
-          {
-            "label": "Closed",
-            "value": "closed"
-          },
-          {
-            "label": "Settled",
-            "value": "settled"
-          },
-          {
-            "label": "All",
-            "value": "all"
+            "label": "Tag",
+            "value": "tag"
           }
         ]
       },
       {
-        "paramName": "category",
-        "type": "endpoint",
-        "label": "Category",
-        "optionsEndpoint": "/event_category_options",
-        "optionsParams": {
-          "status": "$status"
-        },
-        "value": "All"
-      },
-      {
-        "paramName": "limit",
-        "type": "number",
-        "label": "Limit",
-        "value": 100
-      },
-      {
-        "paramName": "search_regex",
+        "paramName": "metric",
         "type": "text",
-        "label": "Search Regex",
-        "placeholder": "election|fed|weather",
-        "value": ""
+        "label": "Metric",
+        "value": "volume_24h",
+        "options": [
+          {
+            "label": "24h Volume",
+            "value": "volume_24h"
+          },
+          {
+            "label": "Open Interest",
+            "value": "open_interest"
+          },
+          {
+            "label": "Total Volume",
+            "value": "volume_total"
+          }
+        ]
       },
       {
-        "paramName": "event_ticker",
-        "type": "endpoint",
-        "label": "Event",
-        "optionsEndpoint": "/event_options",
-        "value": "KXELONMARS-99",
+        "paramName": "close_within",
+        "type": "text",
+        "label": "Closes Within",
+        "value": "",
+        "options": [
+          {
+            "label": "Any time",
+            "value": ""
+          },
+          {
+            "label": "24 hours",
+            "value": "1"
+          },
+          {
+            "label": "7 days",
+            "value": "7"
+          },
+          {
+            "label": "30 days",
+            "value": "30"
+          },
+          {
+            "label": "90 days",
+            "value": "90"
+          }
+        ]
+      },
+      {
+        "paramName": "raw",
+        "type": "boolean",
+        "label": "Raw",
+        "value": true,
         "show": false
       }
     ],
     "data": {
       "table": {
-        "showAll": true,
-        "enableCharts": true,
+        "showAll": false,
+        "enableCharts": false,
         "columnsDefs": [
           {
-            "field": "title",
-            "headerName": "Event",
+            "field": "label",
+            "headerName": "Category / Tag / Event",
             "cellDataType": "text",
             "chartDataType": "category",
             "pinned": "left",
-            "width": 420,
+            "width": 280,
             "renderFn": "cellOnClick",
             "renderFnParams": {
               "actionType": "groupBy",
               "groupBy": {
-                "paramName": "event_ticker",
-                "valueField": "event_ticker"
+                "paramName": "selection",
+                "valueField": "selection"
               }
             }
           },
           {
-            "field": "category",
-            "headerName": "Category",
+            "field": "volume_24h",
+            "headerName": "24h Volume",
+            "cellDataType": "number",
+            "chartDataType": "series",
+            "formatterFn": "int",
+            "width": 130
+          },
+          {
+            "field": "volume_total",
+            "headerName": "Total Volume",
+            "cellDataType": "number",
+            "chartDataType": "series",
+            "formatterFn": "int",
+            "width": 130
+          },
+          {
+            "field": "open_interest",
+            "headerName": "Open Interest",
+            "cellDataType": "number",
+            "chartDataType": "series",
+            "formatterFn": "int",
+            "width": 135
+          },
+          {
+            "field": "market_count",
+            "headerName": "Markets",
+            "cellDataType": "number",
+            "chartDataType": "series",
+            "formatterFn": "int",
+            "width": 100
+          },
+          {
+            "field": "selection",
+            "headerName": "Selection",
             "cellDataType": "text",
             "chartDataType": "category",
-            "width": 170
-          },
-          {
-            "field": "subtitle",
-            "headerName": "Subtitle",
-            "cellDataType": "text",
-            "width": 220
-          },
-          {
-            "field": "event_ticker",
-            "headerName": "Event Ticker",
-            "cellDataType": "text",
-            "chartDataType": "category",
-            "width": 220
-          },
-          {
-            "field": "series_ticker",
-            "headerName": "Series",
-            "cellDataType": "text",
-            "chartDataType": "category",
-            "width": 150
-          },
-          {
-            "field": "mutually_exclusive",
-            "headerName": "Mutually Exclusive",
-            "cellDataType": "boolean",
-            "width": 150
-          },
-          {
-            "field": "available_on_brokers",
-            "headerName": "Broker Available",
-            "cellDataType": "boolean",
-            "width": 150
-          },
-          {
-            "field": "last_updated",
-            "headerName": "Last Updated",
-            "cellDataType": "dateString",
-            "chartDataType": "category",
-            "width": 170
+            "hide": true
           }
         ]
       }
+    }
+  },
+  "browse_markets": {
+    "name": "Browse Markets",
+    "description": "Search and browse active Kalshi markets as event cards with leading outcomes and live probabilities.",
+    "category": "Kalshi",
+    "type": "iframe",
+    "endpoint": "browse_markets",
+    "gridData": {
+      "w": 40,
+      "h": 24
+    },
+    "source": "Kalshi",
+    "params": [
+      {
+        "paramName": "selection",
+        "type": "endpoint",
+        "groupById": "selection-options",
+        "label": "Category / Tag / Event",
+        "optionsEndpoint": "/options/selection-options",
+        "value": "All",
+        "show": false,
+        "optionsParams": {
+          "field": "selection",
+          "selection": "$selection"
+        }
+      },
+      {
+        "paramName": "event_ticker",
+        "type": "endpoint",
+        "groupById": "event_ticker-options",
+        "label": "Event",
+        "optionsEndpoint": "/options/event_ticker-options",
+        "value": "",
+        "show": false,
+        "optionsParams": {
+          "field": "event_ticker",
+          "selection": "$selection"
+        }
+      },
+      {
+        "paramName": "market_key",
+        "type": "endpoint",
+        "groupById": "market_key-options",
+        "label": "Market",
+        "optionsEndpoint": "/options/market_key-options",
+        "value": "",
+        "show": false,
+        "optionsParams": {
+          "field": "market_key",
+          "event_ticker": "$event_ticker",
+          "market_key": "$market_key"
+        }
+      }
+    ],
+    "storage": {
+      "mcpUrl": "mcp/"
     }
   },
   "event_metrics": {
@@ -176,36 +237,148 @@
       {
         "paramName": "event_ticker",
         "type": "endpoint",
+        "groupById": "event_ticker-options",
         "label": "Event",
-        "optionsEndpoint": "/event_options",
-        "value": "KXELONMARS-99",
-        "show": false
+        "optionsEndpoint": "/options/event_ticker-options",
+        "value": null,
+        "show": false,
+        "optionsParams": {
+          "field": "event_ticker",
+          "category": "$category",
+          "tag": "$tag"
+        },
+        "style": {
+          "popupWidth": 950
+        }
+      },
+      {
+        "paramName": "category",
+        "type": "endpoint",
+        "groupById": "category-options",
+        "label": "Category",
+        "optionsEndpoint": "/options/category-options",
+        "value": "All",
+        "show": true,
+        "optionsParams": {
+          "field": "category"
+        }
+      },
+      {
+        "paramName": "tag",
+        "type": "endpoint",
+        "groupById": "tag-options",
+        "label": "Tag",
+        "optionsEndpoint": "/options/tag-options",
+        "optionsParams": {
+          "field": "tag",
+          "category": "$category"
+        },
+        "value": "All",
+        "show": true
       }
     ]
   },
-  "event_brief": {
-    "name": "Selected Event Brief",
-    "description": "Plain-language summary and leading outcomes for the selected event.",
+  "event_history_chart": {
+    "name": "Event Price History",
+    "description": "Line chart of YES probabilities for all event outcomes or selected outcomes.",
     "category": "Kalshi",
-    "type": "markdown",
-    "endpoint": "event_brief",
+    "type": "table",
+    "endpoint": "event_history_chart",
     "gridData": {
-      "w": 14,
+      "w": 40,
       "h": 15
     },
     "source": [
       "Kalshi"
     ],
+    "storage": {
+      "ignoreCellRange": true,
+      "chartView": {
+        "enabled": true,
+        "chartType": "line"
+      }
+    },
     "params": [
       {
         "paramName": "event_ticker",
         "type": "endpoint",
+        "groupById": "event_ticker-options",
         "label": "Event",
-        "optionsEndpoint": "/event_options",
-        "value": "KXELONMARS-99",
+        "optionsEndpoint": "/options/event_ticker-options",
+        "value": "",
+        "show": false,
+        "optionsParams": {
+          "field": "event_ticker",
+          "category": "$category",
+          "tag": "$tag"
+        }
+      },
+      {
+        "paramName": "category",
+        "type": "endpoint",
+        "groupById": "category-options",
+        "label": "Category",
+        "optionsEndpoint": "/options/category-options",
+        "value": "All",
+        "show": false,
+        "optionsParams": {
+          "field": "category"
+        }
+      },
+      {
+        "paramName": "tag",
+        "type": "endpoint",
+        "groupById": "tag-options",
+        "label": "Tag",
+        "optionsEndpoint": "/options/tag-options",
+        "optionsParams": {
+          "field": "tag",
+          "category": "$category"
+        },
+        "value": "All",
         "show": false
+      },
+      {
+        "paramName": "history_market_key",
+        "type": "endpoint",
+        "groupById": "history_market_key-options",
+        "label": "Outcome",
+        "optionsEndpoint": "/options/history_market_key-options",
+        "value": "",
+        "show": true,
+        "optionsParams": {
+          "field": "market_key",
+          "event_ticker": "$event_ticker",
+          "market_key": "$history_market_key",
+          "include_all": "true",
+          "sort": "probability"
+        },
+        "multiSelect": true
       }
-    ]
+    ],
+    "data": {
+      "table": {
+        "showAll": true,
+        "enableCharts": true,
+        "chartView": {
+          "enabled": true,
+          "chartType": "line",
+          "ignoreCellRange": true
+        },
+        "columnsDefs": [
+          {
+            "field": "time",
+            "headerName": "Time",
+            "cellDataType": "dateString",
+            "chartDataType": "time",
+            "pinned": "left",
+            "width": 170,
+            "sort": "asc",
+            "sortIndex": 0
+          }
+        ]
+      }
+    }
   },
   "event_markets": {
     "name": "Event Markets",
@@ -224,27 +397,61 @@
       {
         "paramName": "event_ticker",
         "type": "endpoint",
+        "groupById": "event_ticker-options",
         "label": "Event",
-        "optionsEndpoint": "/event_options",
-        "value": "KXELONMARS-99",
-        "show": false
+        "optionsEndpoint": "/options/event_ticker-options",
+        "value": "",
+        "show": false,
+        "optionsParams": {
+          "field": "event_ticker",
+          "category": "$category",
+          "tag": "$tag"
+        }
+      },
+      {
+        "paramName": "category",
+        "type": "endpoint",
+        "groupById": "category-options",
+        "label": "Category",
+        "optionsEndpoint": "/options/category-options",
+        "value": "All",
+        "show": true,
+        "optionsParams": {
+          "field": "category"
+        }
+      },
+      {
+        "paramName": "tag",
+        "type": "endpoint",
+        "groupById": "tag-options",
+        "label": "Tag",
+        "optionsEndpoint": "/options/tag-options",
+        "optionsParams": {
+          "field": "tag",
+          "category": "$category"
+        },
+        "value": "All",
+        "show": true
       },
       {
         "paramName": "market_key",
         "type": "endpoint",
+        "groupById": "market_key-options",
         "label": "Market",
-        "optionsEndpoint": "/market_options",
+        "optionsEndpoint": "/options/market_key-options",
+        "value": "",
+        "show": false,
         "optionsParams": {
-          "event_ticker": "$event_ticker"
-        },
-        "value": "KXELONMARS|KXELONMARS-99|KXELONMARS-99",
-        "show": false
+          "field": "market_key",
+          "event_ticker": "$event_ticker",
+          "market_key": "$market_key"
+        }
       }
     ],
     "data": {
       "table": {
         "showAll": true,
-        "enableCharts": true,
+        "enableCharts": false,
         "columnsDefs": [
           {
             "field": "subtitle",
@@ -323,139 +530,82 @@
             "cellDataType": "dateString",
             "chartDataType": "category",
             "width": 170
+          },
+          {
+            "field": "market_key",
+            "headerName": "Market Key",
+            "cellDataType": "text",
+            "chartDataType": "category",
+            "hide": true
+          },
+          {
+            "field": "event_ticker",
+            "headerName": "Event Ticker",
+            "cellDataType": "text",
+            "chartDataType": "category",
+            "hide": true
+          },
+          {
+            "field": "series_ticker",
+            "headerName": "Series Ticker",
+            "cellDataType": "text",
+            "chartDataType": "category",
+            "hide": true
+          },
+          {
+            "field": "title",
+            "headerName": "Title",
+            "cellDataType": "text",
+            "chartDataType": "category",
+            "hide": true
+          },
+          {
+            "field": "status",
+            "headerName": "Status",
+            "cellDataType": "text",
+            "chartDataType": "category",
+            "hide": true
+          },
+          {
+            "field": "price_change_points",
+            "headerName": "Price Change",
+            "cellDataType": "number",
+            "chartDataType": "series",
+            "hide": true
+          },
+          {
+            "field": "volume_24h",
+            "headerName": "24h Volume",
+            "cellDataType": "number",
+            "chartDataType": "series",
+            "hide": true
+          },
+          {
+            "field": "liquidity",
+            "headerName": "Liquidity",
+            "cellDataType": "number",
+            "chartDataType": "series",
+            "hide": true
+          },
+          {
+            "field": "updated_time",
+            "headerName": "Updated Time",
+            "cellDataType": "dateString",
+            "chartDataType": "time",
+            "hide": true
           }
         ]
       }
     }
   },
-  "market_probability_gauge": {
-    "name": "YES / NO Probability",
-    "description": "Gauge-style probability view for the selected market.",
-    "category": "Kalshi",
-    "type": "chart",
-    "endpoint": "market_probability_gauge",
-    "raw": true,
-    "gridData": {
-      "w": 16,
-      "h": 8
-    },
-    "source": [
-      "Kalshi"
-    ],
-    "params": [
-      {
-        "paramName": "market_key",
-        "type": "endpoint",
-        "label": "Market",
-        "optionsEndpoint": "/market_options",
-        "value": "KXELONMARS|KXELONMARS-99|KXELONMARS-99",
-        "show": false
-      }
-    ]
-  },
-  "market_probability_table": {
-    "name": "Probability Snapshot",
-    "description": "Plain-table YES/NO probability, bid, ask, and source for the selected market.",
+  "event_outcomes": {
+    "name": "Event Outcomes",
+    "description": "All outcomes attached to the selected event. Click an outcome to update the Event Price History selection.",
     "category": "Kalshi",
     "type": "table",
-    "endpoint": "market_probability_table",
+    "endpoint": "event_markets",
     "gridData": {
-      "w": 16,
-      "h": 8
-    },
-    "source": [
-      "Kalshi"
-    ],
-    "params": [
-      {
-        "paramName": "market_key",
-        "type": "endpoint",
-        "label": "Market",
-        "optionsEndpoint": "/market_options",
-        "value": "KXELONMARS|KXELONMARS-99|KXELONMARS-99",
-        "show": false
-      }
-    ],
-    "data": {
-      "table": {
-        "showAll": true,
-        "enableCharts": true,
-        "columnsDefs": [
-          {
-            "field": "side",
-            "headerName": "Side",
-            "cellDataType": "text",
-            "chartDataType": "category",
-            "pinned": "left",
-            "width": 90
-          },
-          {
-            "field": "probability_pct",
-            "headerName": "Probability %",
-            "cellDataType": "number",
-            "chartDataType": "series",
-            "formatterFn": "none",
-            "width": 135
-          },
-          {
-            "field": "bid_pct",
-            "headerName": "Bid %",
-            "cellDataType": "number",
-            "chartDataType": "series",
-            "formatterFn": "none",
-            "width": 95
-          },
-          {
-            "field": "ask_pct",
-            "headerName": "Ask %",
-            "cellDataType": "number",
-            "chartDataType": "series",
-            "formatterFn": "none",
-            "width": 95
-          },
-          {
-            "field": "source",
-            "headerName": "Source",
-            "cellDataType": "text",
-            "chartDataType": "category",
-            "width": 130
-          }
-        ]
-      }
-    }
-  },
-  "market_brief": {
-    "name": "Market Rules",
-    "description": "Resolution rule and key fields for the selected market.",
-    "category": "Kalshi",
-    "type": "markdown",
-    "endpoint": "market_brief",
-    "gridData": {
-      "w": 16,
-      "h": 11
-    },
-    "source": [
-      "Kalshi"
-    ],
-    "params": [
-      {
-        "paramName": "market_key",
-        "type": "endpoint",
-        "label": "Market",
-        "optionsEndpoint": "/market_options",
-        "value": "KXELONMARS|KXELONMARS-99|KXELONMARS-99",
-        "show": false
-      }
-    ]
-  },
-  "market_orderbook": {
-    "name": "Orderbook",
-    "description": "Best yes and no bid levels for the selected Kalshi market.",
-    "category": "Kalshi",
-    "type": "table",
-    "endpoint": "market_orderbook",
-    "gridData": {
-      "w": 16,
+      "w": 24,
       "h": 15
     },
     "source": [
@@ -463,99 +613,200 @@
     ],
     "params": [
       {
-        "paramName": "market_key",
+        "paramName": "event_ticker",
         "type": "endpoint",
-        "label": "Market",
-        "optionsEndpoint": "/market_options",
-        "value": "KXELONMARS|KXELONMARS-99|KXELONMARS-99",
-        "show": false
+        "groupById": "event_ticker-options",
+        "label": "Event",
+        "optionsEndpoint": "/options/event_ticker-options",
+        "value": "",
+        "show": false,
+        "optionsParams": {
+          "field": "event_ticker",
+          "category": "$category",
+          "tag": "$tag"
+        }
       },
       {
-        "paramName": "depth",
-        "type": "number",
-        "label": "Depth",
-        "value": 10
+        "paramName": "category",
+        "type": "endpoint",
+        "groupById": "category-options",
+        "label": "Category",
+        "optionsEndpoint": "/options/category-options",
+        "value": "All",
+        "show": true,
+        "optionsParams": {
+          "field": "category"
+        }
+      },
+      {
+        "paramName": "tag",
+        "type": "endpoint",
+        "groupById": "tag-options",
+        "label": "Tag",
+        "optionsEndpoint": "/options/tag-options",
+        "optionsParams": {
+          "field": "tag",
+          "category": "$category"
+        },
+        "value": "All",
+        "show": true
+      },
+      {
+        "paramName": "history_market_key",
+        "type": "endpoint",
+        "groupById": "history_market_key-options",
+        "label": "History Outcome",
+        "optionsEndpoint": "/options/history_market_key-options",
+        "value": "",
+        "show": false,
+        "optionsParams": {
+          "field": "market_key",
+          "event_ticker": "$event_ticker",
+          "market_key": "$history_market_key",
+          "include_all": "true",
+          "sort": "probability"
+        },
+        "multiSelect": true
       }
     ],
     "data": {
       "table": {
         "showAll": true,
+        "enableCharts": false,
         "columnsDefs": [
           {
-            "field": "side",
-            "headerName": "Side",
+            "field": "subtitle",
+            "headerName": "Outcome",
             "cellDataType": "text",
-            "width": 90
+            "chartDataType": "category",
+            "pinned": "left",
+            "width": 260,
+            "renderFn": "cellOnClick",
+            "renderFnParams": {
+              "actionType": "groupBy",
+              "groupBy": {
+                "paramName": "history_market_key",
+                "valueField": "market_key"
+              }
+            }
           },
           {
-            "field": "level",
-            "headerName": "Level",
+            "field": "last_price_pct",
+            "headerName": "Last %",
             "cellDataType": "number",
-            "formatterFn": "int",
-            "width": 80
-          },
-          {
-            "field": "probability_pct",
-            "headerName": "Side Price %",
-            "cellDataType": "number",
+            "chartDataType": "series",
             "formatterFn": "none",
-            "width": 130
+            "width": 100
           },
           {
-            "field": "yes_equivalent_pct",
-            "headerName": "Implied YES %",
+            "field": "yes_bid_pct",
+            "headerName": "Yes Bid %",
             "cellDataType": "number",
+            "chartDataType": "series",
             "formatterFn": "none",
-            "width": 130
+            "width": 110
           },
           {
-            "field": "contracts",
-            "headerName": "Contracts",
+            "field": "yes_ask_pct",
+            "headerName": "Yes Ask %",
             "cellDataType": "number",
+            "chartDataType": "series",
+            "formatterFn": "none",
+            "width": 110
+          },
+          {
+            "field": "spread_points",
+            "headerName": "Spread Pts",
+            "cellDataType": "number",
+            "chartDataType": "series",
+            "formatterFn": "none",
+            "width": 120
+          },
+          {
+            "field": "volume_total",
+            "headerName": "Volume",
+            "cellDataType": "number",
+            "chartDataType": "series",
             "formatterFn": "int",
             "width": 120
           },
           {
-            "field": "notional",
-            "headerName": "Notional",
+            "field": "open_interest",
+            "headerName": "Open Interest",
             "cellDataType": "number",
-            "formatterFn": "none",
-            "width": 110
+            "chartDataType": "series",
+            "formatterFn": "int",
+            "width": 135
+          },
+          {
+            "field": "ticker",
+            "headerName": "Market Ticker",
+            "cellDataType": "text",
+            "chartDataType": "category",
+            "width": 240
+          },
+          {
+            "field": "close_time",
+            "headerName": "Close Time",
+            "cellDataType": "dateString",
+            "chartDataType": "category",
+            "width": 170
+          },
+          {
+            "field": "market_key",
+            "headerName": "Market Key",
+            "cellDataType": "text",
+            "chartDataType": "category",
+            "hide": true
           }
         ]
       }
     }
   },
-  "orderbook_depth_chart": {
-    "name": "Orderbook Depth",
-    "description": "Two-sided depth view using implied YES prices. YES bids are on the right; NO bids are converted to implied YES asks on the left.",
+  "market_brief": {
+    "name": "Market Rules & Details",
+    "description": "Full resolution rules and metadata for the selected market: rules, timeline and settlement, settlement sources, trading restrictions, fees, and contract links.",
     "category": "Kalshi",
-    "type": "chart",
-    "endpoint": "orderbook_depth_chart",
-    "raw": true,
+    "type": "iframe",
+    "endpoint": "market_brief",
     "gridData": {
-      "w": 20,
-      "h": 14
+      "w": 11,
+      "h": 20
     },
     "source": [
       "Kalshi"
     ],
     "params": [
       {
-        "paramName": "market_key",
+        "paramName": "event_ticker",
         "type": "endpoint",
-        "label": "Market",
-        "optionsEndpoint": "/market_options",
-        "value": "KXELONMARS|KXELONMARS-99|KXELONMARS-99",
-        "show": false
+        "groupById": "event_ticker-options",
+        "label": "Event",
+        "optionsEndpoint": "/options/event_ticker-options",
+        "value": "",
+        "show": false,
+        "optionsParams": {
+          "field": "event_ticker"
+        }
       },
       {
-        "paramName": "depth",
-        "type": "number",
-        "label": "Depth",
-        "value": 10
+        "paramName": "market_key",
+        "type": "endpoint",
+        "groupById": "market_key-options",
+        "label": "Market",
+        "optionsEndpoint": "/options/market_key-options",
+        "value": "",
+        "show": false,
+        "optionsParams": {
+          "field": "market_key",
+          "event_ticker": "$event_ticker",
+          "market_key": "$market_key"
+        }
       }
-    ]
+    ],
+    "storage": {
+      "mcpUrl": "mcp/"
+    }
   },
   "orderbook_ladder": {
     "name": "Orderbook Ladder",
@@ -573,18 +824,80 @@
     ],
     "params": [
       {
+        "paramName": "event_ticker",
+        "type": "endpoint",
+        "groupById": "event_ticker-options",
+        "label": "Event",
+        "optionsEndpoint": "/options/event_ticker-options",
+        "value": "",
+        "show": false,
+        "optionsParams": {
+          "field": "event_ticker",
+          "category": "$category",
+          "tag": "$tag"
+        }
+      },
+      {
         "paramName": "market_key",
         "type": "endpoint",
+        "groupById": "market_key-options",
         "label": "Market",
-        "optionsEndpoint": "/market_options",
-        "value": "KXELONMARS|KXELONMARS-99|KXELONMARS-99",
-        "show": false
+        "optionsEndpoint": "/options/market_key-options",
+        "value": "",
+        "show": false,
+        "optionsParams": {
+          "field": "market_key",
+          "event_ticker": "$event_ticker",
+          "market_key": "$market_key"
+        }
+      },
+      {
+        "paramName": "category",
+        "type": "endpoint",
+        "groupById": "category-options",
+        "label": "Category",
+        "optionsEndpoint": "/options/category-options",
+        "value": "All",
+        "show": true,
+        "optionsParams": {
+          "field": "category"
+        }
+      },
+      {
+        "paramName": "tag",
+        "type": "endpoint",
+        "groupById": "tag-options",
+        "label": "Tag",
+        "optionsEndpoint": "/options/tag-options",
+        "optionsParams": {
+          "field": "tag",
+          "category": "$category"
+        },
+        "value": "All",
+        "show": true
       },
       {
         "paramName": "depth",
         "type": "number",
         "label": "Depth",
         "value": 10
+      },
+      {
+        "paramName": "side",
+        "type": "tabs",
+        "label": "Side",
+        "value": "yes",
+        "description": "Trade Yes (YES book) or Trade No (NO book)",
+        "options": [
+          {
+            "label": "Trade Yes",
+            "value": "yes"
+          },
+          {
+            "label": "Trade No",
+            "value": "no"
+          }
+        ]
       }
     ]
   },
@@ -603,12 +916,57 @@
     ],
     "params": [
       {
+        "paramName": "event_ticker",
+        "type": "endpoint",
+        "groupById": "event_ticker-options",
+        "label": "Event",
+        "optionsEndpoint": "/options/event_ticker-options",
+        "value": "",
+        "show": false,
+        "optionsParams": {
+          "field": "event_ticker",
+          "category": "$category",
+          "tag": "$tag"
+        }
+      },
+      {
         "paramName": "market_key",
         "type": "endpoint",
+        "groupById": "market_key-options",
         "label": "Market",
-        "optionsEndpoint": "/market_options",
-        "value": "KXELONMARS|KXELONMARS-99|KXELONMARS-99",
-        "show": false
+        "optionsEndpoint": "/options/market_key-options",
+        "value": "",
+        "show": false,
+        "optionsParams": {
+          "field": "market_key",
+          "event_ticker": "$event_ticker",
+          "market_key": "$market_key"
+        }
+      },
+      {
+        "paramName": "category",
+        "type": "endpoint",
+        "groupById": "category-options",
+        "label": "Category",
+        "optionsEndpoint": "/options/category-options",
+        "value": "All",
+        "show": true,
+        "optionsParams": {
+          "field": "category"
+        }
+      },
+      {
+        "paramName": "tag",
+        "type": "endpoint",
+        "groupById": "tag-options",
+        "label": "Tag",
+        "optionsEndpoint": "/options/tag-options",
+        "optionsParams": {
+          "field": "tag",
+          "category": "$category"
+        },
+        "value": "All",
+        "show": true
       },
       {
         "paramName": "limit",
@@ -680,325 +1038,6 @@
             "headerName": "Book Side",
             "cellDataType": "text",
             "width": 120
-          }
-        ]
-      }
-    }
-  },
-  "market_price_chart": {
-    "name": "Price History Chart",
-    "description": "Synced candlestick-style YES price chart for the selected market, with bid/ask and volume overlays when available. Raw rows are available from this same widget.",
-    "category": "Kalshi",
-    "type": "chart",
-    "endpoint": "market_price_chart",
-    "raw": true,
-    "gridData": {
-      "w": 40,
-      "h": 16
-    },
-    "source": [
-      "Kalshi"
-    ],
-    "params": [
-      {
-        "paramName": "market_key",
-        "type": "endpoint",
-        "label": "Market",
-        "optionsEndpoint": "/market_options",
-        "value": "KXELONMARS|KXELONMARS-99|KXELONMARS-99",
-        "show": false
-      },
-      {
-        "paramName": "days",
-        "type": "number",
-        "label": "Days",
-        "value": 30
-      },
-      {
-        "paramName": "period_interval",
-        "type": "text",
-        "label": "Interval",
-        "value": "1440",
-        "options": [
-          {
-            "label": "1 Minute",
-            "value": "1"
-          },
-          {
-            "label": "1 Hour",
-            "value": "60"
-          },
-          {
-            "label": "1 Day",
-            "value": "1440"
-          }
-        ]
-      }
-    ]
-  },
-  "market_history_table": {
-    "name": "Historical Prices",
-    "description": "AgGrid history for the selected market. Uses Kalshi candlesticks when available and trade history when candlesticks are empty.",
-    "category": "Kalshi",
-    "type": "table",
-    "endpoint": "market_history_table",
-    "gridData": {
-      "w": 40,
-      "h": 24
-    },
-    "source": [
-      "Kalshi"
-    ],
-    "params": [
-      {
-        "paramName": "market_key",
-        "type": "endpoint",
-        "label": "Market",
-        "optionsEndpoint": "/market_options",
-        "value": "KXELONMARS|KXELONMARS-99|KXELONMARS-99",
-        "show": false
-      },
-      {
-        "paramName": "days",
-        "type": "number",
-        "label": "Days",
-        "value": 30
-      },
-      {
-        "paramName": "period_interval",
-        "type": "text",
-        "label": "Interval",
-        "value": "1440",
-        "options": [
-          {
-            "label": "1 Minute",
-            "value": "1"
-          },
-          {
-            "label": "1 Hour",
-            "value": "60"
-          },
-          {
-            "label": "1 Day",
-            "value": "1440"
-          }
-        ]
-      },
-      {
-        "paramName": "limit",
-        "type": "number",
-        "label": "Rows",
-        "value": 500
-      }
-    ],
-    "data": {
-      "table": {
-        "showAll": true,
-        "enableCharts": true,
-        "columnsDefs": [
-          {
-            "field": "date",
-            "headerName": "Time",
-            "cellDataType": "dateString",
-            "chartDataType": "category",
-            "pinned": "left",
-            "width": 190
-          },
-          {
-            "field": "source",
-            "headerName": "Source",
-            "cellDataType": "text",
-            "chartDataType": "category",
-            "width": 120
-          },
-          {
-            "field": "open_pct",
-            "headerName": "Open %",
-            "cellDataType": "number",
-            "chartDataType": "series",
-            "formatterFn": "none",
-            "width": 100
-          },
-          {
-            "field": "high_pct",
-            "headerName": "High %",
-            "cellDataType": "number",
-            "chartDataType": "series",
-            "formatterFn": "none",
-            "width": 100
-          },
-          {
-            "field": "low_pct",
-            "headerName": "Low %",
-            "cellDataType": "number",
-            "chartDataType": "series",
-            "formatterFn": "none",
-            "width": 100
-          },
-          {
-            "field": "close_pct",
-            "headerName": "Close %",
-            "cellDataType": "number",
-            "chartDataType": "series",
-            "formatterFn": "none",
-            "width": 105
-          },
-          {
-            "field": "yes_bid_pct",
-            "headerName": "Yes Bid %",
-            "cellDataType": "number",
-            "chartDataType": "series",
-            "formatterFn": "none",
-            "width": 115
-          },
-          {
-            "field": "yes_ask_pct",
-            "headerName": "Yes Ask %",
-            "cellDataType": "number",
-            "chartDataType": "series",
-            "formatterFn": "none",
-            "width": 115
-          },
-          {
-            "field": "volume",
-            "headerName": "Volume",
-            "cellDataType": "number",
-            "chartDataType": "series",
-            "formatterFn": "int",
-            "width": 120
-          },
-          {
-            "field": "open_interest",
-            "headerName": "Open Interest",
-            "cellDataType": "number",
-            "chartDataType": "series",
-            "formatterFn": "int",
-            "width": 140
-          }
-        ]
-      }
-    }
-  },
-  "series_table": {
-    "name": "Series Catalog",
-    "description": "Reference catalog of Kalshi series templates, categories, tags, settlement sources, and total volume. This is metadata, not selected-event drilldown.",
-    "category": "Kalshi",
-    "type": "table",
-    "endpoint": "series_table",
-    "gridData": {
-      "w": 40,
-      "h": 20
-    },
-    "source": [
-      "Kalshi"
-    ],
-    "params": [
-      {
-        "paramName": "category",
-        "type": "text",
-        "label": "Category",
-        "value": "All",
-        "options": [
-          {
-            "label": "All",
-            "value": "All"
-          },
-          {
-            "label": "Financials",
-            "value": "Financials"
-          },
-          {
-            "label": "Economics",
-            "value": "Economics"
-          },
-          {
-            "label": "Politics",
-            "value": "Politics"
-          },
-          {
-            "label": "Sports",
-            "value": "Sports"
-          },
-          {
-            "label": "Climate and Weather",
-            "value": "Climate and Weather"
-          },
-          {
-            "label": "Science and Technology",
-            "value": "Science and Technology"
-          },
-          {
-            "label": "Entertainment",
-            "value": "Entertainment"
-          }
-        ]
-      },
-      {
-        "paramName": "limit",
-        "type": "number",
-        "label": "Limit",
-        "value": 100
-      }
-    ],
-    "data": {
-      "table": {
-        "showAll": true,
-        "enableCharts": true,
-        "columnsDefs": [
-          {
-            "field": "series_ticker",
-            "headerName": "Series",
-            "cellDataType": "text",
-            "chartDataType": "category",
-            "pinned": "left",
-            "width": 160
-          },
-          {
-            "field": "title",
-            "headerName": "Title",
-            "cellDataType": "text",
-            "width": 320
-          },
-          {
-            "field": "category",
-            "headerName": "Category",
-            "cellDataType": "text",
-            "chartDataType": "category",
-            "width": 160
-          },
-          {
-            "field": "frequency",
-            "headerName": "Frequency",
-            "cellDataType": "text",
-            "chartDataType": "category",
-            "width": 120
-          },
-          {
-            "field": "tags",
-            "headerName": "Tags",
-            "cellDataType": "text",
-            "width": 220
-          },
-          {
-            "field": "volume_total",
-            "headerName": "Volume",
-            "cellDataType": "number",
-            "chartDataType": "series",
-            "formatterFn": "int",
-            "width": 130
-          },
-          {
-            "field": "settlement_sources",
-            "headerName": "Settlement Sources",
-            "cellDataType": "text",
-            "width": 260
-          },
-          {
-            "field": "last_updated",
-            "headerName": "Last Updated",
-            "cellDataType": "dateString",
-            "chartDataType": "category",
-            "width": 170
           }
         ]
       }
