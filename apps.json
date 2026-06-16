@@ -18,7 +18,7 @@
             "w": 40,
             "h": 16,
             "groups": [
-              "Group 4"
+              "Group 1"
             ],
             "state": {
               "params": {
@@ -36,7 +36,7 @@
             "groups": [
               "Group 1",
               "Group 2",
-              "Group 4"
+              "Group 3"
             ],
             "state": {
               "params": {
@@ -60,7 +60,7 @@
             "w": 40,
             "h": 4,
             "groups": [
-              "Group 1"
+              "Group 2"
             ]
           },
           {
@@ -70,8 +70,8 @@
             "w": 40,
             "h": 15,
             "groups": [
-              "Group 1",
-              "Group 3"
+              "Group 2",
+              "Group 4"
             ]
           },
           {
@@ -81,8 +81,8 @@
             "w": 40,
             "h": 15,
             "groups": [
-              "Group 1",
-              "Group 3"
+              "Group 2",
+              "Group 4"
             ]
           }
         ]
@@ -98,8 +98,8 @@
             "w": 40,
             "h": 10,
             "groups": [
-              "Group 1",
-              "Group 2"
+              "Group 2",
+              "Group 3"
             ]
           },
           {
@@ -109,8 +109,8 @@
             "w": 40,
             "h": 20,
             "groups": [
-              "Group 1",
-              "Group 2"
+              "Group 2",
+              "Group 3"
             ]
           },
           {
@@ -120,8 +120,8 @@
             "w": 40,
             "h": 20,
             "groups": [
-              "Group 1",
-              "Group 2"
+              "Group 2",
+              "Group 3"
             ]
           },
           {
@@ -131,8 +131,8 @@
             "w": 40,
             "h": 12,
             "groups": [
-              "Group 1",
-              "Group 2"
+              "Group 2",
+              "Group 3"
             ]
           }
         ]
@@ -141,6 +141,16 @@
     "groups": [
       {
         "name": "Group 1",
+        "type": "endpointParam",
+        "paramName": "selection",
+        "defaultValue": "All",
+        "widgetIds": [
+          "volume_by_category",
+          "browse_markets"
+        ]
+      },
+      {
+        "name": "Group 2",
         "type": "endpointParam",
         "paramName": "event_ticker",
         "defaultValue": "",
@@ -156,7 +166,7 @@
         ]
       },
       {
-        "name": "Group 2",
+        "name": "Group 3",
         "type": "endpointParam",
         "paramName": "market_key",
         "defaultValue": "",
@@ -169,23 +179,13 @@
         ]
       },
       {
-        "name": "Group 3",
+        "name": "Group 4",
         "type": "endpointParam",
         "paramName": "history_market_key",
         "defaultValue": "",
         "widgetIds": [
           "event_outcomes",
           "event_history_chart"
-        ]
-      },
-      {
-        "name": "Group 4",
-        "type": "endpointParam",
-        "paramName": "selection",
-        "defaultValue": "All",
-        "widgetIds": [
-          "volume_by_category",
-          "browse_markets"
         ]
       }
     ],

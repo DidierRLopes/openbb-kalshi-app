@@ -15,19 +15,6 @@
     ],
     "params": [
       {
-        "paramName": "selection",
-        "type": "endpoint",
-        "groupById": "selection-options",
-        "label": "Category / Tag / Event",
-        "optionsEndpoint": "/options/selection-options",
-        "value": "All",
-        "show": false,
-        "optionsParams": {
-          "field": "selection",
-          "selection": "$selection"
-        }
-      },
-      {
         "paramName": "group_by",
         "type": "text",
         "label": "Group By",
@@ -90,6 +77,19 @@
             "value": "90"
           }
         ]
+      },
+      {
+        "paramName": "selection",
+        "type": "endpoint",
+        "groupById": "selection-options",
+        "label": "Category / Tag / Event",
+        "optionsEndpoint": "/options/selection-options",
+        "value": "All",
+        "show": true,
+        "optionsParams": {
+          "field": "selection",
+          "selection": "$selection"
+        }
       },
       {
         "paramName": "raw",
@@ -182,7 +182,8 @@
         "label": "Category / Tag / Event",
         "optionsEndpoint": "/options/selection-options",
         "value": "All",
-        "show": false,
+        "show": true,
+        "row": 1,
         "optionsParams": {
           "field": "selection",
           "selection": "$selection"
@@ -195,7 +196,8 @@
         "label": "Event",
         "optionsEndpoint": "/options/event_ticker-options",
         "value": "",
-        "show": false,
+        "show": true,
+        "row": 1,
         "optionsParams": {
           "field": "event_ticker",
           "selection": "$selection"
@@ -209,6 +211,7 @@
         "optionsEndpoint": "/options/market_key-options",
         "value": "",
         "show": false,
+        "row": 1,
         "optionsParams": {
           "field": "market_key",
           "event_ticker": "$event_ticker",
@@ -243,38 +246,11 @@
         "value": null,
         "show": false,
         "optionsParams": {
-          "field": "event_ticker",
-          "category": "$category",
-          "tag": "$tag"
+          "field": "event_ticker"
         },
         "style": {
           "popupWidth": 950
         }
-      },
-      {
-        "paramName": "category",
-        "type": "endpoint",
-        "groupById": "category-options",
-        "label": "Category",
-        "optionsEndpoint": "/options/category-options",
-        "value": "All",
-        "show": true,
-        "optionsParams": {
-          "field": "category"
-        }
-      },
-      {
-        "paramName": "tag",
-        "type": "endpoint",
-        "groupById": "tag-options",
-        "label": "Tag",
-        "optionsEndpoint": "/options/tag-options",
-        "optionsParams": {
-          "field": "tag",
-          "category": "$category"
-        },
-        "value": "All",
-        "show": true
       }
     ]
   },
@@ -308,35 +284,8 @@
         "value": "",
         "show": false,
         "optionsParams": {
-          "field": "event_ticker",
-          "category": "$category",
-          "tag": "$tag"
+          "field": "event_ticker"
         }
-      },
-      {
-        "paramName": "category",
-        "type": "endpoint",
-        "groupById": "category-options",
-        "label": "Category",
-        "optionsEndpoint": "/options/category-options",
-        "value": "All",
-        "show": false,
-        "optionsParams": {
-          "field": "category"
-        }
-      },
-      {
-        "paramName": "tag",
-        "type": "endpoint",
-        "groupById": "tag-options",
-        "label": "Tag",
-        "optionsEndpoint": "/options/tag-options",
-        "optionsParams": {
-          "field": "tag",
-          "category": "$category"
-        },
-        "value": "All",
-        "show": false
       },
       {
         "paramName": "history_market_key",
@@ -403,35 +352,8 @@
         "value": "",
         "show": false,
         "optionsParams": {
-          "field": "event_ticker",
-          "category": "$category",
-          "tag": "$tag"
+          "field": "event_ticker"
         }
-      },
-      {
-        "paramName": "category",
-        "type": "endpoint",
-        "groupById": "category-options",
-        "label": "Category",
-        "optionsEndpoint": "/options/category-options",
-        "value": "All",
-        "show": true,
-        "optionsParams": {
-          "field": "category"
-        }
-      },
-      {
-        "paramName": "tag",
-        "type": "endpoint",
-        "groupById": "tag-options",
-        "label": "Tag",
-        "optionsEndpoint": "/options/tag-options",
-        "optionsParams": {
-          "field": "tag",
-          "category": "$category"
-        },
-        "value": "All",
-        "show": true
       },
       {
         "paramName": "market_key",
@@ -621,35 +543,8 @@
         "value": "",
         "show": false,
         "optionsParams": {
-          "field": "event_ticker",
-          "category": "$category",
-          "tag": "$tag"
+          "field": "event_ticker"
         }
-      },
-      {
-        "paramName": "category",
-        "type": "endpoint",
-        "groupById": "category-options",
-        "label": "Category",
-        "optionsEndpoint": "/options/category-options",
-        "value": "All",
-        "show": true,
-        "optionsParams": {
-          "field": "category"
-        }
-      },
-      {
-        "paramName": "tag",
-        "type": "endpoint",
-        "groupById": "tag-options",
-        "label": "Tag",
-        "optionsEndpoint": "/options/tag-options",
-        "optionsParams": {
-          "field": "tag",
-          "category": "$category"
-        },
-        "value": "All",
-        "show": true
       },
       {
         "paramName": "history_market_key",
@@ -832,9 +727,7 @@
         "value": "",
         "show": false,
         "optionsParams": {
-          "field": "event_ticker",
-          "category": "$category",
-          "tag": "$tag"
+          "field": "event_ticker"
         }
       },
       {
@@ -850,31 +743,6 @@
           "event_ticker": "$event_ticker",
           "market_key": "$market_key"
         }
-      },
-      {
-        "paramName": "category",
-        "type": "endpoint",
-        "groupById": "category-options",
-        "label": "Category",
-        "optionsEndpoint": "/options/category-options",
-        "value": "All",
-        "show": true,
-        "optionsParams": {
-          "field": "category"
-        }
-      },
-      {
-        "paramName": "tag",
-        "type": "endpoint",
-        "groupById": "tag-options",
-        "label": "Tag",
-        "optionsEndpoint": "/options/tag-options",
-        "optionsParams": {
-          "field": "tag",
-          "category": "$category"
-        },
-        "value": "All",
-        "show": true
       },
       {
         "paramName": "depth",
@@ -924,9 +792,7 @@
         "value": "",
         "show": false,
         "optionsParams": {
-          "field": "event_ticker",
-          "category": "$category",
-          "tag": "$tag"
+          "field": "event_ticker"
         }
       },
       {
@@ -942,31 +808,6 @@
           "event_ticker": "$event_ticker",
           "market_key": "$market_key"
         }
-      },
-      {
-        "paramName": "category",
-        "type": "endpoint",
-        "groupById": "category-options",
-        "label": "Category",
-        "optionsEndpoint": "/options/category-options",
-        "value": "All",
-        "show": true,
-        "optionsParams": {
-          "field": "category"
-        }
-      },
-      {
-        "paramName": "tag",
-        "type": "endpoint",
-        "groupById": "tag-options",
-        "label": "Tag",
-        "optionsEndpoint": "/options/tag-options",
-        "optionsParams": {
-          "field": "tag",
-          "category": "$category"
-        },
-        "value": "All",
-        "show": true
       },
       {
         "paramName": "limit",
