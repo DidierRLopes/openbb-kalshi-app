@@ -168,6 +168,11 @@ async def apps(
     return JSONResponse(content=manifest)
 
 
+@router.get("/agents.json")
+async def agents() -> JSONResponse:
+    return JSONResponse(content={})
+
+
 @router.get("/thumbnail.svg", include_in_schema=False)
 async def thumbnail() -> Response:
     return Response(content=_THUMBNAIL_SVG, media_type="image/svg+xml")

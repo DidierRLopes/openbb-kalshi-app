@@ -94,7 +94,7 @@ SELECTION_SEPARATOR = " > "
 
 
 def compose_selection(category: str = "", tag: str = "", event_ticker: str = "") -> str:
-    """Build a `Category > Tag > Event` drill-selection string."""
+    """Build a `Category > Topic` drill-selection string."""
     parts = [category or "All"]
     if tag or event_ticker:
         parts.append(tag or "All")
@@ -104,7 +104,7 @@ def compose_selection(category: str = "", tag: str = "", event_ticker: str = "")
 
 
 def parse_selection(selection: Any) -> dict[str, str]:
-    """Split a `Category > Tag > Event` selection into its components."""
+    """Split a `Category > Topic` selection into its components."""
     parts = [part.strip() for part in str(selection or "").split(SELECTION_SEPARATOR)]
     parts += [""] * (3 - len(parts))
 

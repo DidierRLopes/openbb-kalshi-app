@@ -128,9 +128,6 @@ _BRIDGE_JS = r"""
     var params = {};
     if (eventTicker) params.event_ticker = eventTicker;
     if (eventTicker) params.market_key = marketKey || "";
-    if (eventTicker && CFG.selectionPrefix) {
-      params.selection = CFG.selectionPrefix + " > " + eventTicker;
-    }
     emitWidgetParams(params);
   }
 
@@ -196,7 +193,7 @@ _BRIDGE_JS = r"""
       columnDefs: [
         { headerName: "Event", field: "title", flex: 2, minWidth: 260, pinned: "left" },
         { headerName: "Category", field: "category", width: 140 },
-        { headerName: "Tags", field: "tags", width: 170 },
+        { headerName: "Topics", field: "tags", width: 170 },
         { headerName: "Leading", field: "leading_outcome", width: 160 },
         { headerName: "Leading %", field: "leading_pct", width: 110, type: "numericColumn", valueFormatter: pctFmt },
         { headerName: "Markets", field: "market_count", width: 100, type: "numericColumn", valueFormatter: intFmt },

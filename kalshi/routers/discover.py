@@ -6,9 +6,8 @@ from typing import Any
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
 
-from kalshi import charts
 from kalshi.browse import render_browse
 from kalshi.dependencies import get_service, get_stats, get_taxonomy, resolve_base_url
 from kalshi.formatting import clamp_limit, compose_selection, parse_market_key, parse_selection
@@ -97,14 +96,13 @@ async def _browse_param_defs(
         event_options.insert(0, {"label": event_ticker, "value": event_ticker})
 
     return [
-        {"paramName": "search", "label": "Search", "type": "text", "value": "",
-         "description": "Filter events by title, tag, or ticker"},
-        {"paramName": "selection", "label": "Category / Tag", "type": "text", "value": selection or "All",
-         "description": "Category or tag filter shared with Volume by Category", "options": selections},
+        {"paramName": "search", "label": "Search", "type": "text", "value": ""},
+        {"paramName": "selection", "label": "Category / Topic", "type": "text", "value": selection or "All",
+         "options": selections},
         {"paramName": "event_ticker", "label": "Event", "type": "text", "value": event_ticker,
-         "description": "Selected event shared with the dashboard", "options": event_options},
+         "options": event_options},
         {"paramName": "market_key", "label": "Market", "type": "text", "value": market_key,
-         "description": "Selected market shared with market widgets", "options": market_options},
+         "options": market_options},
         {"paramName": "sort", "label": "Sort", "type": "text", "value": "trending", "options": [
             {"label": "Trending", "value": "trending"}, {"label": "Volatile", "value": "volatile"},
             {"label": "New", "value": "new"}, {"label": "Closing soon", "value": "closing_soon"},
@@ -138,22 +136,15 @@ def _days(close_within: str) -> int | None:
 def _volume_table_rows(
     rows: list[dict[str, Any]],
     *,
-    group_by: str,
     category: str | None,
-    tag: str | None,
 ) -> list[dict[str, Any]]:
-    """Attach the `Category > Tag > Event` selection each row drills into."""
+    """Attach the `Category > Topic` selection each row drills into."""
     table_rows: list[dict[str, Any]] = []
     for row in rows:
         label = str(row.get("category") or "")
-        if tag:
-            # Rows are events under the selected tag.
-            selection = compose_selection(category or "", tag, str(row.get("event_ticker") or ""))
-        elif category:
+        if category:
             # Rows are tags within the selected category.
             selection = compose_selection(category, label)
-        elif group_by == "tag":
-            selection = compose_selection("", label)
         else:
             selection = compose_selection(label)
 
@@ -163,44 +154,24 @@ def _volume_table_rows(
 
 @router.get("/volume_by_category")
 async def volume_by_category(
-    group_by: str = Query("category"),
     metric: str = Query("volume_24h"),
     selection: str = Query("All"),
     close_within: str = Query(""),
-    theme: str = Query("dark"),
-    raw: bool = Query(False),
     stats: MarketStatsCache = Depends(get_stats),
 ) -> Any:
     metric = metric if metric in _METRIC_LABELS else "volume_24h"
-    group_by = "tag" if group_by == "tag" else "category"
     days = _days(close_within)
     sel = parse_selection(selection)
     cat = sel["category"] or None
-    selected = sel["tag"]
-    tag_drill = bool(selected)
-    category = cat or "All"
 
-    if tag_drill:
-        rows = await stats.by_event(category=cat, tag=selected, close_within_days=days)
-        scope = f" in {category}" if cat else ""
-        label = f"{_METRIC_LABELS[metric]} — events tagged {selected}{scope}"
-        rows = sorted(rows, key=lambda r: r.get(metric, 0), reverse=True)[:25]
-    elif cat:
+    if cat:
         rows = await stats.by_group("tag", close_within_days=days, category=cat)
-        label = f"{_METRIC_LABELS[metric]} — tags in {category}"
         rows = sorted(rows, key=lambda r: r.get(metric, 0), reverse=True)[:20]
     else:
-        rows = await stats.by_group(group_by, close_within_days=days)
-        label = _METRIC_LABELS[metric]
+        rows = await stats.by_group("category", close_within_days=days)
         rows = sorted(rows, key=lambda r: r.get(metric, 0), reverse=True)
-        if group_by == "tag":
-            rows = rows[:20]
 
-    if raw:
-        return _volume_table_rows(rows, group_by=group_by, category=cat, tag=selected)
-    if not rows:
-        return JSONResponse(content=charts.empty_figure("No open markets in range", theme))
-    return JSONResponse(content=charts.category_volume(rows, metric, label, theme))
+    return _volume_table_rows(rows, category=cat)
 
 
 @router.get("/browse_markets")
@@ -229,14 +200,8 @@ async def browse_markets(
         category = sel["category"] or "All"
         tag = sel["tag"] or "All"
 
-    # An event-level selection (from the Volume by Category drill) overrides the
-    # shared event; the bridge re-emits it so the event/market groups catch up.
     selected_event = (event_ticker or "").strip() or parse_market_key(market_key)["event_ticker"]
     selected_market = market_key
-    emit_on_load = bool(sel["event_ticker"]) and sel["event_ticker"] != (event_ticker or "").strip()
-    if emit_on_load:
-        selected_event = sel["event_ticker"]
-        selected_market = ""
 
     events = await stats.browse_events(
         category=category,
@@ -274,6 +239,6 @@ async def browse_markets(
         selected_event_ticker=selected_event,
         selected_market_key=selected_market,
         selection_prefix=f"{sel['category'] or 'All'} > {sel['tag'] or 'All'}",
-        emit_on_load=emit_on_load,
+        emit_on_load=False,
     )
     return HTMLResponse(content=html)

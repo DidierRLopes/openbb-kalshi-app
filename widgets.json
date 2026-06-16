@@ -1,11 +1,10 @@
 {
   "volume_by_category": {
     "name": "Volume by Category",
-    "description": "Aggregated open-market activity grouped by Kalshi category or tag. Toggle the metric (24h volume, open interest, total volume) and restrict to markets resolving within a window.",
+    "description": "Aggregated open-market activity grouped by Kalshi category or topic. Toggle the metric (24h volume, open interest, total volume) and restrict to markets resolving within a window.",
     "category": "Kalshi",
     "type": "table",
     "endpoint": "volume_by_category",
-    "raw": true,
     "gridData": {
       "w": 40,
       "h": 20
@@ -14,22 +13,6 @@
       "Kalshi"
     ],
     "params": [
-      {
-        "paramName": "group_by",
-        "type": "text",
-        "label": "Group By",
-        "value": "category",
-        "options": [
-          {
-            "label": "Category",
-            "value": "category"
-          },
-          {
-            "label": "Tag",
-            "value": "tag"
-          }
-        ]
-      },
       {
         "paramName": "metric",
         "type": "text",
@@ -82,7 +65,7 @@
         "paramName": "selection",
         "type": "endpoint",
         "groupById": "selection-options",
-        "label": "Category / Tag / Event",
+        "label": "Category / Topic",
         "optionsEndpoint": "/options/selection-options",
         "value": "All",
         "show": true,
@@ -90,13 +73,6 @@
           "field": "selection",
           "selection": "$selection"
         }
-      },
-      {
-        "paramName": "raw",
-        "type": "boolean",
-        "label": "Raw",
-        "value": true,
-        "show": true
       }
     ],
     "data": {
@@ -106,7 +82,7 @@
         "columnsDefs": [
           {
             "field": "label",
-            "headerName": "Category / Tag / Event",
+            "headerName": "Category / Topic",
             "cellDataType": "text",
             "chartDataType": "category",
             "pinned": "left",
@@ -179,7 +155,7 @@
         "paramName": "selection",
         "type": "endpoint",
         "groupById": "selection-options",
-        "label": "Category / Tag / Event",
+        "label": "Category / Topic",
         "optionsEndpoint": "/options/selection-options",
         "value": "All",
         "show": true,
@@ -775,7 +751,6 @@
         "type": "tabs",
         "label": "Side",
         "value": "yes",
-        "description": "Trade Yes (YES book) or Trade No (NO book)",
         "options": [
           {
             "label": "Trade Yes",

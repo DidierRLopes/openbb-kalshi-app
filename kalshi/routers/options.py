@@ -38,7 +38,7 @@ async def _category_options(taxonomy: TaxonomyCache) -> list[Option]:
 
 
 async def _selection_options(taxonomy: TaxonomyCache, selection: str) -> list[Option]:
-    """`Category > Tag` drill options; tags are listed for the active category."""
+    """`Category > Topic` drill options; topics are listed for the active category."""
     options: list[Option] = [{"label": "All categories", "value": ALL}]
     current = parse_selection(selection)
     for entry in await taxonomy.categories():
