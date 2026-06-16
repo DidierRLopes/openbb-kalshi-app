@@ -13,7 +13,7 @@ from kalshi import charts
 from kalshi.constants import LEGACY_TOP_HISTORY_MARKET_KEY, TOP_HISTORY_MARKET_COUNT
 from kalshi.dependencies import get_service, get_stats, get_taxonomy, resolve_base_url
 from kalshi.event_page import render_event_page
-from kalshi.formatting import compact_number, parse_market_key, timestamp_to_iso
+from kalshi.formatting import compact_number, parse_market_key, timestamp_to_iso, to_float
 from kalshi.service import MarketDataService
 from kalshi.stats import MarketStatsCache
 from kalshi.taxonomy import ALL, TaxonomyCache
@@ -217,6 +217,29 @@ def _history_market_selection(history_market_key: Any) -> tuple[str, set[str]]:
     return "top", set()
 
 
+def _market_probability(market: dict[str, Any]) -> float:
+    return to_float(market.get("last_price_dollars")) or to_float(
+        market.get("yes_bid_dollars")
+    )
+
+
+def _top_markets_plus_selected(
+    markets: list[dict[str, Any]],
+    selected_market_tickers: set[str],
+) -> list[dict[str, Any]]:
+    top_markets = sorted(markets, key=_market_probability, reverse=True)[
+        :TOP_HISTORY_MARKET_COUNT
+    ]
+    seen = {market.get("ticker") for market in top_markets}
+    selected_markets = [
+        market
+        for market in markets
+        if market.get("ticker") in selected_market_tickers
+        and market.get("ticker") not in seen
+    ]
+    return [*top_markets, *selected_markets]
+
+
 def _history_outcome_field(name: Any, ticker: Any, used: set[str]) -> str:
     label = str(name or ticker or "outcome").strip()
     base = _HISTORY_FIELD_RE.sub("_", label.lower()).strip("_") or "outcome"
@@ -252,11 +275,16 @@ async def event_history_chart(
     history_mode, selected_market_tickers = _history_market_selection(history_market_key)
     history_markets = selected["markets"]
     if history_mode == "selected":
-        history_markets = [
-            market for market in selected["markets"]
+        history_markets = _top_markets_plus_selected(
+            selected["markets"],
+            selected_market_tickers,
+        )
+        selected_matches = [
+            market
+            for market in selected["markets"]
             if market.get("ticker") in selected_market_tickers
         ]
-        if not history_markets:
+        if not selected_matches:
             history_mode = "top"
             history_markets = selected["markets"]
     top_n = (

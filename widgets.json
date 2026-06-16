@@ -96,7 +96,7 @@
         "type": "boolean",
         "label": "Raw",
         "value": true,
-        "show": false
+        "show": true
       }
     ],
     "data": {
@@ -201,6 +201,9 @@
         "optionsParams": {
           "field": "event_ticker",
           "selection": "$selection"
+        },
+        "style": {
+          "popupWidth": 1425
         }
       },
       {
@@ -244,12 +247,12 @@
         "label": "Event",
         "optionsEndpoint": "/options/event_ticker-options",
         "value": null,
-        "show": false,
+        "show": true,
         "optionsParams": {
           "field": "event_ticker"
         },
         "style": {
-          "popupWidth": 950
+          "popupWidth": 1425
         }
       }
     ]
@@ -282,9 +285,12 @@
         "label": "Event",
         "optionsEndpoint": "/options/event_ticker-options",
         "value": "",
-        "show": false,
+        "show": true,
         "optionsParams": {
           "field": "event_ticker"
+        },
+        "style": {
+          "popupWidth": 1425
         }
       },
       {
@@ -350,9 +356,12 @@
         "label": "Event",
         "optionsEndpoint": "/options/event_ticker-options",
         "value": "",
-        "show": false,
+        "show": true,
         "optionsParams": {
           "field": "event_ticker"
+        },
+        "style": {
+          "popupWidth": 1425
         }
       },
       {
@@ -362,7 +371,7 @@
         "label": "Market",
         "optionsEndpoint": "/options/market_key-options",
         "value": "",
-        "show": false,
+        "show": true,
         "optionsParams": {
           "field": "market_key",
           "event_ticker": "$event_ticker",
@@ -541,9 +550,12 @@
         "label": "Event",
         "optionsEndpoint": "/options/event_ticker-options",
         "value": "",
-        "show": false,
+        "show": true,
         "optionsParams": {
           "field": "event_ticker"
+        },
+        "style": {
+          "popupWidth": 1425
         }
       },
       {
@@ -553,7 +565,7 @@
         "label": "History Outcome",
         "optionsEndpoint": "/options/history_market_key-options",
         "value": "",
-        "show": false,
+        "show": true,
         "optionsParams": {
           "field": "market_key",
           "event_ticker": "$event_ticker",
@@ -679,10 +691,14 @@
         "label": "Event",
         "optionsEndpoint": "/options/event_ticker-options",
         "value": "",
-        "show": false,
+        "show": true,
         "optionsParams": {
           "field": "event_ticker"
-        }
+        },
+        "style": {
+          "popupWidth": 1425
+        },
+        "row": 1
       },
       {
         "paramName": "market_key",
@@ -691,12 +707,13 @@
         "label": "Market",
         "optionsEndpoint": "/options/market_key-options",
         "value": "",
-        "show": false,
+        "show": true,
         "optionsParams": {
           "field": "market_key",
           "event_ticker": "$event_ticker",
           "market_key": "$market_key"
-        }
+        },
+        "row": 1
       }
     ],
     "storage": {
@@ -725,9 +742,12 @@
         "label": "Event",
         "optionsEndpoint": "/options/event_ticker-options",
         "value": "",
-        "show": false,
+        "show": true,
         "optionsParams": {
           "field": "event_ticker"
+        },
+        "style": {
+          "popupWidth": 1425
         }
       },
       {
@@ -737,7 +757,7 @@
         "label": "Market",
         "optionsEndpoint": "/options/market_key-options",
         "value": "",
-        "show": false,
+        "show": true,
         "optionsParams": {
           "field": "market_key",
           "event_ticker": "$event_ticker",
@@ -790,9 +810,12 @@
         "label": "Event",
         "optionsEndpoint": "/options/event_ticker-options",
         "value": "",
-        "show": false,
+        "show": true,
         "optionsParams": {
           "field": "event_ticker"
+        },
+        "style": {
+          "popupWidth": 1425
         }
       },
       {
@@ -802,7 +825,7 @@
         "label": "Market",
         "optionsEndpoint": "/options/market_key-options",
         "value": "",
-        "show": false,
+        "show": true,
         "optionsParams": {
           "field": "market_key",
           "event_ticker": "$event_ticker",
