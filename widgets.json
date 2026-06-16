@@ -17,6 +17,7 @@
         "paramName": "metric",
         "type": "text",
         "label": "Metric",
+        "description": "Choose the activity metric used to rank categories and topics: 24h volume, open interest, or total volume.",
         "value": "volume_24h",
         "options": [
           {
@@ -37,6 +38,7 @@
         "paramName": "close_within",
         "type": "text",
         "label": "Closes Within",
+        "description": "Restrict results to markets closing within the selected window. Use Any time to include all open markets.",
         "value": "",
         "options": [
           {
@@ -66,6 +68,7 @@
         "type": "endpoint",
         "groupById": "selection-options",
         "label": "Category / Topic",
+        "description": "Shared browse filter for All, a Kalshi category, or a topic/tag. Selecting a row in this widget updates this filter.",
         "optionsEndpoint": "/options/selection-options",
         "value": "All",
         "show": true,
@@ -156,6 +159,7 @@
         "type": "endpoint",
         "groupById": "selection-options",
         "label": "Category / Topic",
+        "description": "Filter the market browser by All, a Kalshi category, or a topic/tag.",
         "optionsEndpoint": "/options/selection-options",
         "value": "All",
         "show": true,
@@ -170,6 +174,7 @@
         "type": "endpoint",
         "groupById": "event_ticker-options",
         "label": "Event",
+        "description": "Shared Kalshi event selection. Choosing an event updates the event-level widgets and market options.",
         "optionsEndpoint": "/options/event_ticker-options",
         "value": "",
         "show": true,
@@ -179,7 +184,7 @@
           "selection": "$selection"
         },
         "style": {
-          "popupWidth": 1000
+          "popupWidth": 850
         }
       },
       {
@@ -187,6 +192,7 @@
         "type": "endpoint",
         "groupById": "market_key-options",
         "label": "Market",
+        "description": "Shared Kalshi market selection. Choosing a market updates market-level widgets such as rules, orderbook, and trades.",
         "optionsEndpoint": "/options/market_key-options",
         "value": "",
         "show": false,
@@ -221,6 +227,7 @@
         "type": "endpoint",
         "groupById": "event_ticker-options",
         "label": "Event",
+        "description": "Shared Kalshi event selection used to calculate the selected event metrics.",
         "optionsEndpoint": "/options/event_ticker-options",
         "value": null,
         "show": true,
@@ -228,7 +235,7 @@
           "field": "event_ticker"
         },
         "style": {
-          "popupWidth": 1000
+          "popupWidth": 850
         }
       }
     ]
@@ -259,6 +266,7 @@
         "type": "endpoint",
         "groupById": "event_ticker-options",
         "label": "Event",
+        "description": "Shared Kalshi event selection used to load price history across the event outcomes.",
         "optionsEndpoint": "/options/event_ticker-options",
         "value": "",
         "show": true,
@@ -266,7 +274,7 @@
           "field": "event_ticker"
         },
         "style": {
-          "popupWidth": 1000
+          "popupWidth": 850
         }
       },
       {
@@ -274,6 +282,7 @@
         "type": "endpoint",
         "groupById": "history_market_key-options",
         "label": "Outcome",
+        "description": "Outcome market or markets to plot in the event price history chart.",
         "optionsEndpoint": "/options/history_market_key-options",
         "value": "",
         "show": true,
@@ -330,6 +339,7 @@
         "type": "endpoint",
         "groupById": "event_ticker-options",
         "label": "Event",
+        "description": "Shared Kalshi event selection used to list the event's markets.",
         "optionsEndpoint": "/options/event_ticker-options",
         "value": "",
         "show": true,
@@ -337,7 +347,7 @@
           "field": "event_ticker"
         },
         "style": {
-          "popupWidth": 1000
+          "popupWidth": 850
         }
       },
       {
@@ -345,6 +355,7 @@
         "type": "endpoint",
         "groupById": "market_key-options",
         "label": "Market",
+        "description": "Shared Kalshi market selection. Clicking an outcome row updates this market.",
         "optionsEndpoint": "/options/market_key-options",
         "value": "",
         "show": true,
@@ -524,6 +535,7 @@
         "type": "endpoint",
         "groupById": "event_ticker-options",
         "label": "Event",
+        "description": "Shared Kalshi event selection used to list all event outcomes.",
         "optionsEndpoint": "/options/event_ticker-options",
         "value": "",
         "show": true,
@@ -531,7 +543,7 @@
           "field": "event_ticker"
         },
         "style": {
-          "popupWidth": 1000
+          "popupWidth": 850
         }
       },
       {
@@ -539,6 +551,7 @@
         "type": "endpoint",
         "groupById": "history_market_key-options",
         "label": "History Outcome",
+        "description": "Outcome market or markets selected for the Event Price History chart lines.",
         "optionsEndpoint": "/options/history_market_key-options",
         "value": "",
         "show": true,
@@ -665,6 +678,7 @@
         "type": "endpoint",
         "groupById": "event_ticker-options",
         "label": "Event",
+        "description": "Shared Kalshi event selection used to scope market rules and details.",
         "optionsEndpoint": "/options/event_ticker-options",
         "value": "",
         "show": true,
@@ -672,7 +686,7 @@
           "field": "event_ticker"
         },
         "style": {
-          "popupWidth": 1000
+          "popupWidth": 850
         },
         "row": 1
       },
@@ -681,6 +695,7 @@
         "type": "endpoint",
         "groupById": "market_key-options",
         "label": "Market",
+        "description": "Shared Kalshi market selection used for rules, resolution details, and settlement metadata.",
         "optionsEndpoint": "/options/market_key-options",
         "value": "",
         "show": true,
@@ -716,6 +731,7 @@
         "type": "endpoint",
         "groupById": "event_ticker-options",
         "label": "Event",
+        "description": "Shared Kalshi event selection used to scope the orderbook market options.",
         "optionsEndpoint": "/options/event_ticker-options",
         "value": "",
         "show": true,
@@ -723,7 +739,7 @@
           "field": "event_ticker"
         },
         "style": {
-          "popupWidth": 1000
+          "popupWidth": 850
         }
       },
       {
@@ -731,6 +747,7 @@
         "type": "endpoint",
         "groupById": "market_key-options",
         "label": "Market",
+        "description": "Shared Kalshi market selection used to load the orderbook ladder.",
         "optionsEndpoint": "/options/market_key-options",
         "value": "",
         "show": true,
@@ -744,12 +761,14 @@
         "paramName": "depth",
         "type": "number",
         "label": "Depth",
+        "description": "Number of orderbook price levels to display on each side of the ladder.",
         "value": 10
       },
       {
         "paramName": "side",
         "type": "tabs",
         "label": "Side",
+        "description": "Choose whether the ladder is shown from the YES or NO contract perspective.",
         "value": "yes",
         "options": [
           {
@@ -783,6 +802,7 @@
         "type": "endpoint",
         "groupById": "event_ticker-options",
         "label": "Event",
+        "description": "Shared Kalshi event selection used to scope trade tape market options.",
         "optionsEndpoint": "/options/event_ticker-options",
         "value": "",
         "show": true,
@@ -790,7 +810,7 @@
           "field": "event_ticker"
         },
         "style": {
-          "popupWidth": 1000
+          "popupWidth": 850
         }
       },
       {
@@ -798,6 +818,7 @@
         "type": "endpoint",
         "groupById": "market_key-options",
         "label": "Market",
+        "description": "Shared Kalshi market selection used to load recent public trades.",
         "optionsEndpoint": "/options/market_key-options",
         "value": "",
         "show": true,
@@ -811,6 +832,7 @@
         "paramName": "limit",
         "type": "number",
         "label": "Limit",
+        "description": "Maximum number of recent trades to return for the selected market.",
         "value": 100
       }
     ],
