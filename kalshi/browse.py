@@ -90,6 +90,18 @@ _BRIDGE_JS = r"""
   }
   applyTheme(CFG.theme || "dark");
 
+  function marketKeyEvent(marketKey) {
+    var parts = String(marketKey || "").split("|");
+    return parts.length >= 3 ? parts[2].trim() : "";
+  }
+
+  function normalizeMarketKey(eventTicker, marketKey) {
+    var mk = String(marketKey || "");
+    var mkEvent = marketKeyEvent(mk);
+    if (eventTicker && mk && mkEvent && mkEvent !== String(eventTicker)) return "";
+    return mk;
+  }
+
   function applyParams(params) {
     if (!params) return;
     var incoming = {};
@@ -104,6 +116,13 @@ _BRIDGE_JS = r"""
     var qs = new URLSearchParams(window.location.search), changed = false;
     var selection = String(incoming.selection != null ? incoming.selection : (qs.get("selection") || ""));
     var search = String(incoming.search != null ? incoming.search : (qs.get("search") || ""));
+    var eventTicker = String(incoming.event_ticker != null ? incoming.event_ticker : (qs.get("event_ticker") || ""));
+    var marketKey = String(incoming.market_key != null ? incoming.market_key : (qs.get("market_key") || ""));
+    var normalizedMarketKey = normalizeMarketKey(eventTicker, marketKey);
+    if (marketKey && normalizedMarketKey !== marketKey) {
+      incoming.market_key = "";
+      emitWidgetParams({ event_ticker: eventTicker, market_key: "" });
+    }
     var grouped = !!selection && selection !== "All";
     if (grouped && GROUP_FILTER_VALUES[search.toLowerCase()]) {
       incoming.search = "";
@@ -127,7 +146,7 @@ _BRIDGE_JS = r"""
   function selectEvent(eventTicker, marketKey) {
     var params = {};
     if (eventTicker) params.event_ticker = eventTicker;
-    if (eventTicker) params.market_key = marketKey || "";
+    if (eventTicker) params.market_key = normalizeMarketKey(eventTicker, marketKey) || "";
     emitWidgetParams(params);
   }
 
@@ -154,6 +173,7 @@ _BRIDGE_JS = r"""
   function intFmt(p) { return p.value == null ? "" : Number(p.value).toLocaleString(); }
   function pctFmt(p) { return p.value == null ? "" : Number(p.value).toFixed(0) + "%"; }
   function eventUrl(et, mk) {
+    mk = normalizeMarketKey(et, mk);
     var u = CFG.base + "/event_details?event_ticker=" + encodeURIComponent(et) + "&theme=" + encodeURIComponent(CFG.theme || "dark");
     if (mk) u += "&market_key=" + encodeURIComponent(mk);
     if (CFG.back) u += "&back=" + encodeURIComponent(CFG.back);

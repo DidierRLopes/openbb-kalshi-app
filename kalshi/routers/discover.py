@@ -202,6 +202,9 @@ async def browse_markets(
 
     selected_event = (event_ticker or "").strip() or parse_market_key(market_key)["event_ticker"]
     selected_market = market_key
+    selected_market_event = parse_market_key(selected_market)["event_ticker"]
+    if selected_event and selected_market_event and selected_market_event != selected_event:
+        selected_market = ""
 
     events = await stats.browse_events(
         category=category,
