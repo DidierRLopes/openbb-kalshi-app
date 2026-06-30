@@ -1,0 +1,23 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Deploy
+        uses: dokku/github-action@master
+        with:
+          git_remote_url: ${{ secrets.DOKKU_PROD_REMOTE }}
+          ssh_private_key: ${{ secrets.DEPLOYER_SSH_PRIVATE_KEY }}
+          git_push_flags: "--force"
+          branch: main

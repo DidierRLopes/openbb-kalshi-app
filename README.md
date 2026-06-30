@@ -41,7 +41,7 @@ Open **Apps** and launch **Kalshi Market Explorer**.
 
 The backend is a small package instead of one monolithic file:
 
-```
+```text
 main.py                  # thin entry point: exposes `app` for `uvicorn main:app`
 kalshi/
 ├── app.py               # application factory: wiring + CORS + routers
@@ -123,10 +123,35 @@ cp .env.example .env
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `KALSHI_API_BASE_URL` | `https://api.elections.kalshi.com/trade-api/v2` | Kalshi public API base |
+| `KALSHI_PUBLIC_BASE_URL` | request base URL | Browser-facing backend base URL used when resolving widget, app, and MCP URLs |
 | `KALSHI_HTTP_TIMEOUT` | `20` | Request timeout (seconds) |
+| `KALSHI_RATE_LIMIT_PER_SEC` | `8` | Shared upstream request rate limit |
 | `KALSHI_QUOTE_TTL_SECONDS` | `30` | Cache TTL for markets/events/status |
 | `KALSHI_REALTIME_TTL_SECONDS` | `10` | Cache TTL for orderbook/trades |
 | `KALSHI_TAXONOMY_TTL_SECONDS` | `600` | Cache TTL for the series/tag taxonomy |
+| `KALSHI_STATS_TTL_SECONDS` | `600` | Cache TTL for Discover stats |
+| `KALSHI_STATS_SCAN_MAX_PAGES` | `60` | Maximum 1000-market pages scanned per stats refresh |
+
+## Deployment
+
+This repository is prepared for the standard OpenBB GitHub Actions to Dokku
+deployment pattern. Pushes to `main` run `.github/workflows/deploy.yml`, which
+pushes the repository to the Dokku Git remote supplied by repository secrets.
+
+Required GitHub repository secrets:
+
+- `DOKKU_PROD_REMOTE`: SSH Git remote for the Dokku app, for example
+  `dokku@<host>:<app>`.
+- `DEPLOYER_SSH_PRIVATE_KEY`: private key allowed to push to that Dokku app.
+
+The app uses Python buildpack inputs at the repository root:
+
+- `requirements.txt` for dependencies.
+- `Procfile` with the web process command.
+
+Runtime configuration belongs in Dokku app config. The application can run with
+defaults, but deployment administrators should review the variables in the
+configuration table above. The expected health-check endpoint is `GET /`.
 
 ## API Endpoints
 
