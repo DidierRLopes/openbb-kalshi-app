@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from typing import Any
 
@@ -29,6 +30,8 @@ SORT_FIELDS = {
     "closing_soon": ("close_ts", False),
     "fifty_fifty": ("fifty", False),
 }
+
+LOGGER = logging.getLogger(__name__)
 
 
 def _series_of(event_ticker: str, fallback: str) -> str:
@@ -69,12 +72,37 @@ class MarketStatsCache:
         self._taxonomy = taxonomy
         self._settings = settings
         self._lock = asyncio.Lock()
+        self._refresh_task: asyncio.Task[None] | None = None
         self._loaded = False
         self._fetched_at = 0.0
         self._markets: list[dict[str, Any]] = []
 
     def _fresh(self) -> bool:
         return self._loaded and (time.monotonic() - self._fetched_at < self._settings.stats_ttl)
+
+    @property
+    def loaded(self) -> bool:
+        return self._loaded
+
+    @property
+    def refreshing(self) -> bool:
+        task = self._refresh_task
+        return task is not None and not task.done()
+
+    def refresh_in_background(self) -> bool:
+        if self.refreshing:
+            return False
+        self._refresh_task = asyncio.create_task(self.ensure_fresh())
+        self._refresh_task.add_done_callback(self._refresh_done)
+        return True
+
+    def _refresh_done(self, task: asyncio.Task[None]) -> None:
+        if task.cancelled():
+            return
+        try:
+            task.result()
+        except Exception:
+            LOGGER.exception("Kalshi stats refresh failed")
 
     async def ensure_fresh(self) -> None:
         if self._fresh():
@@ -84,13 +112,21 @@ class MarketStatsCache:
                 return
             await self._scan()
 
+    async def _ensure_available(self) -> None:
+        if self._fresh():
+            return
+        self.refresh_in_background()
+
     async def _scan(self) -> None:
+        started = time.monotonic()
         category_by_series = await self._taxonomy.category_by_series()
         frequency_by_series = await self._taxonomy.frequency_by_series()
         tags_by_series = await self._taxonomy.tags_by_series()
         live_feed_by_series = await self._taxonomy.live_feed_by_series()
         markets: list[dict[str, Any]] = []
         cursor: str | None = None
+        pages_scanned = 0
+        raw_markets = 0
         for _ in range(self._settings.stats_scan_max_pages):
             params: dict[str, Any] = {
                 "status": "open",
@@ -101,6 +137,8 @@ class MarketStatsCache:
                 params["cursor"] = cursor
             data = await self._client.get("/markets", params, ttl=self._settings.stats_ttl)
             page = data.get("markets") or []
+            pages_scanned += 1
+            raw_markets += len(page)
             for raw in page:
                 volume_24h = quantity(raw.get("volume_24h_fp"))
                 open_interest = quantity(raw.get("open_interest_fp"))
@@ -149,6 +187,14 @@ class MarketStatsCache:
         self._markets = markets
         self._fetched_at = time.monotonic()
         self._loaded = True
+        LOGGER.info(
+            "Kalshi stats refreshed pages=%s raw_markets=%s retained_markets=%s seconds=%.2f truncated=%s",
+            pages_scanned,
+            raw_markets,
+            len(markets),
+            self._fetched_at - started,
+            bool(cursor),
+        )
 
     def _within_window(self, market: dict[str, Any], cutoff: float | None) -> bool:
         if cutoff is None:
@@ -164,7 +210,7 @@ class MarketStatsCache:
         tag: str | None = None,
         series_ticker: str | None = None,
     ) -> list[dict[str, Any]]:
-        await self.ensure_fresh()
+        await self._ensure_available()
         cutoff = None if close_within_days is None else time.time() + close_within_days * 86400
         rows = self._markets
         if category and category != "All":
