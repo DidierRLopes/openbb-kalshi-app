@@ -228,7 +228,6 @@ async def browse_markets(
             outcome["image_url"] = info.get("image_url", "")
             outcome["color"] = info.get("color", "")
 
-    total = len({m["event_ticker"] for m in await stats.markets()})
     base_url = resolve_base_url(request)
     filters = {
         "search": search, "selection": selection, "sort": sort, "frequency": frequency,
@@ -238,7 +237,7 @@ async def browse_markets(
     html = render_browse(
         events, rows=[_event_row(event) for event in events],
         param_defs=await _browse_param_defs(taxonomy, events, selected_event, selected_market, selection),
-        total=total, search=search, theme=theme, base_url=base_url, back_qs=back_qs,
+        total=None, search=search, theme=theme, base_url=base_url, back_qs=back_qs,
         selected_event_ticker=selected_event,
         selected_market_key=selected_market,
         selection_prefix=f"{sel['category'] or 'All'} > {sel['tag'] or 'All'}",

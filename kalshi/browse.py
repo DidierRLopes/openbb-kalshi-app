@@ -354,7 +354,7 @@ def render_browse(
     *,
     rows: list[dict[str, Any]],
     param_defs: list[dict[str, Any]],
-    total: int,
+    total: int | None,
     search: str,
     theme: str,
     base_url: str = "",
@@ -374,7 +374,12 @@ def render_browse(
     else:
         hint = f' for "{escape(search)}"' if search else ""
         body = f'<div class="empty">No markets found{hint}.</div>'
-    caption = f'{len(events)} of {total} active events' + (f' · "{escape(search)}"' if search else "")
+    if total is None:
+        caption = f"Showing {len(events)} active events"
+    else:
+        caption = f"{len(events)} of {total} active events"
+    if search:
+        caption += f' · "{escape(search)}"'
 
     def _emb(value: Any) -> str:
         return json.dumps(value).replace("</", "<\\/")

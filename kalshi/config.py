@@ -40,8 +40,8 @@ class Settings:
     taxonomy_ttl: int = 600
     cache_max_entries: int = 2000
 
-    stats_ttl: int = 600
-    stats_scan_max_pages: int = 60
+    stats_ttl: int = 1800
+    stats_scan_max_pages: int = 10
 
     cors_origins: tuple[str, ...] = field(default=DEFAULT_CORS_ORIGINS)
 

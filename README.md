@@ -63,11 +63,11 @@ kalshi/
     └── markets.py       # probability, rules, orderbook, trades, price history
 ```
 
-A `MarketStatsCache` (`kalshi/stats.py`) pages the full open-market book once in
+A `MarketStatsCache` (`kalshi/stats.py`) pages a bounded active-market slice in
 the background (multivariate markets excluded), maps each market to a category
 via its series prefix, and keeps the active subset in memory. The Discover
-widgets serve from that snapshot instantly; a startup warmer and TTL keep it
-fresh without blocking.
+widgets serve from that snapshot when available; stale data remains usable while
+a refresh runs in the background.
 
 ## How the Cascade Works
 
@@ -129,8 +129,8 @@ cp .env.example .env
 | `KALSHI_QUOTE_TTL_SECONDS` | `30` | Cache TTL for markets/events/status |
 | `KALSHI_REALTIME_TTL_SECONDS` | `10` | Cache TTL for orderbook/trades |
 | `KALSHI_TAXONOMY_TTL_SECONDS` | `600` | Cache TTL for the series/tag taxonomy |
-| `KALSHI_STATS_TTL_SECONDS` | `600` | Cache TTL for Discover stats |
-| `KALSHI_STATS_SCAN_MAX_PAGES` | `60` | Maximum 1000-market pages scanned per stats refresh |
+| `KALSHI_STATS_TTL_SECONDS` | `1800` | Cache TTL for Discover stats |
+| `KALSHI_STATS_SCAN_MAX_PAGES` | `10` | Maximum 1000-market pages scanned per stats refresh |
 
 ## Deployment
 
