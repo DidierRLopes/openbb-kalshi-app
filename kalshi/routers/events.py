@@ -13,7 +13,7 @@ from kalshi import charts
 from kalshi.constants import LEGACY_TOP_HISTORY_MARKET_KEY, TOP_HISTORY_MARKET_COUNT
 from kalshi.dependencies import get_service, get_stats, get_taxonomy, resolve_base_url
 from kalshi.event_page import render_event_page
-from kalshi.formatting import compact_number, parse_market_key, timestamp_to_iso, to_float
+from kalshi.formatting import compact_number, parse_market_key, parse_selection, timestamp_to_iso, to_float
 from kalshi.service import MarketDataService
 from kalshi.stats import MarketStatsCache
 from kalshi.taxonomy import ALL, TaxonomyCache
@@ -41,11 +41,18 @@ async def effective_event_ticker(
     event_ticker: str = Query(""),
     category: str = Query(ALL),
     tag: str = Query(ALL),
+    selection: str = Query(""),
     stats: MarketStatsCache = Depends(get_stats),
 ) -> str:
-    """The selected event, or the most active one in scope."""
+    """The selected event, or the most active one in the selected category/topic."""
     ticker = (event_ticker or "").strip()
-    return ticker or await stats.default_event_ticker(category=category, tag=tag)
+    if ticker:
+        return ticker
+    if (selection or "").strip():
+        sel = parse_selection(selection)
+        category = sel["category"] or ALL
+        tag = sel["tag"] or ALL
+    return await stats.default_event_ticker(category=category, tag=tag)
 
 
 @router.get("/event_metrics")
@@ -65,9 +72,9 @@ async def event_metrics(
 
     return [
         {
-            "label": "Category",
-            "value": event.get("category", "Kalshi"),
-            "subvalue": selected["event_ticker"],
+            "label": "Question",
+            "value": event.get("title") or selected["event_ticker"],
+            "subvalue": f"{event.get('category', 'Kalshi')} · {selected['event_ticker']}",
         },
         {
             "label": "Markets",

@@ -5,12 +5,12 @@ from __future__ import annotations
 import asyncio
 import json
 import time
-from collections import OrderedDict
 from typing import Any
 
 import httpx
 from fastapi import HTTPException
 
+from kalshi.cache import DiskCache
 from kalshi.config import Settings
 
 
@@ -47,10 +47,9 @@ class RateLimiter:
 
 
 class KalshiClient:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, cache: DiskCache) -> None:
         self._settings = settings
-        self._cache: "OrderedDict[str, tuple[float, Any]]" = OrderedDict()
-        self._max_entries = settings.cache_max_entries
+        self._cache = cache
         self._limiter = RateLimiter(settings.rate_limit_per_sec)
         self._client = httpx.AsyncClient(
             base_url=settings.api_base_url,
@@ -63,48 +62,44 @@ class KalshiClient:
 
     @staticmethod
     def _cache_key(path: str, params: dict[str, Any]) -> str:
-        return json.dumps([path, params], sort_keys=True)
-
-    def _store(self, key: str, value: Any, now: float) -> None:
-        self._cache[key] = (now, value)
-        self._cache.move_to_end(key)
-        while len(self._cache) > self._max_entries:
-            self._cache.popitem(last=False)
+        return "http:" + json.dumps([path, params], sort_keys=True)
 
     async def get(
         self,
         path: str,
         params: dict[str, Any] | None = None,
         ttl: int | None = None,
+        no_store: bool = False,
     ) -> dict[str, Any]:
+        """Fetch JSON, caching the response for `ttl` seconds. `no_store` skips
+        the cache entirely — used for bulk ingest pages that are read once and
+        must not churn or evict the shared response cache."""
         ttl = self._settings.quote_ttl if ttl is None else ttl
         clean = _clean_params(params)
         key = self._cache_key(path, clean)
-        now = time.monotonic()
 
-        cached = self._cache.get(key)
-        if cached is not None and now - cached[0] < ttl:
-            self._cache.move_to_end(key)
-            return cached[1]
+        if not no_store:
+            cached = await self._cache.get(key)
+            if cached is not None:
+                return cached
 
         response = await self._request(path, clean)
         data = response.json()
-        self._store(key, data, time.monotonic())
+        if not no_store:
+            await self._cache.set(key, data, expire=ttl)
         return data
 
     async def download(self, url: str, ttl: int = 3600) -> tuple[bytes, str]:
         """Raw bytes + content-type for an arbitrary document URL (e.g. a rules
         PDF), fetched through the shared client so it shares the rate limiter,
-        timeout, and LRU cache."""
+        timeout, and response cache."""
         key = self._cache_key("DOWNLOAD", {"url": url})
-        now = time.monotonic()
-        cached = self._cache.get(key)
-        if cached is not None and now - cached[0] < ttl:
-            self._cache.move_to_end(key)
-            return cached[1]
+        cached = await self._cache.get(key)
+        if cached is not None:
+            return cached
         response = await self._request(url, {})
         result = (response.content, response.headers.get("content-type", "application/octet-stream"))
-        self._store(key, result, time.monotonic())
+        await self._cache.set(key, result, expire=ttl)
         return result
 
     async def _request(self, path: str, params: dict[str, Any]) -> httpx.Response:

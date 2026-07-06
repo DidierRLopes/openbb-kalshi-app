@@ -116,22 +116,20 @@ _BRIDGE_JS = r"""
     var qs = new URLSearchParams(window.location.search), changed = false;
     var selection = String(incoming.selection != null ? incoming.selection : (qs.get("selection") || ""));
     var search = String(incoming.search != null ? incoming.search : (qs.get("search") || ""));
-    var eventTicker = String(incoming.event_ticker != null ? incoming.event_ticker : (qs.get("event_ticker") || ""));
-    var marketKey = String(incoming.market_key != null ? incoming.market_key : (qs.get("market_key") || ""));
-    var normalizedMarketKey = normalizeMarketKey(eventTicker, marketKey);
-    if (marketKey && normalizedMarketKey !== marketKey) {
-      incoming.market_key = "";
-      emitWidgetParams({ event_ticker: eventTicker, market_key: "" });
-    }
     var grouped = !!selection && selection !== "All";
     if (grouped && GROUP_FILTER_VALUES[search.toLowerCase()]) {
       incoming.search = "";
       emitWidgetParams({ search: "" });
     }
-    var pairs = Object.keys(incoming).map(function (k) { return [k, incoming[k]]; });
-    pairs.forEach(function (pair) {
-      var k = pair[0], v = pair[1];
-      if (!k || v == null || PARAM_KEYS.indexOf(k) < 0) return;
+    // The shared event and market selections must NOT change what the browser
+    // shows — it stays at the category card list and only advances when a card
+    // is clicked. Ignore them here so an incoming event/market update (including
+    // the echo of our own card-click emit) can't reload the card list and cancel
+    // the navigation to the event page. Only display params trigger a reload.
+    Object.keys(incoming).forEach(function (k) {
+      if (k === "event_ticker" || k === "market_key") return;
+      var v = incoming[k];
+      if (v == null || PARAM_KEYS.indexOf(k) < 0) return;
       var s = String(v);
       if (qs.get(k) !== s) { qs.set(k, s); changed = true; }
     });
@@ -186,25 +184,35 @@ _BRIDGE_JS = r"""
     if (replace) window.location.replace(url);
     else window.location.href = url;
   }
-  // Auto-drill into the shared event only when it actually changed; the
-  // event/market groups keep their last value, so without this guard every
-  // reload (e.g. a category click) would bounce back into the stale event.
-  var OPENED_KEY = "kalshi-browse-opened";
-  function readOpened() {
-    try { return window.sessionStorage.getItem(OPENED_KEY) || ""; } catch (e) { return ""; }
+  // Clicking a card must (a) drive the Event/Market widgets and (b) navigate this
+  // iframe to the event page. Emitting the selection makes the workspace RE-FETCH
+  // this iframe (server-side), which cancels any direct navigation. So we record
+  // the click, emit, and then drill in on the reload that the emit triggers. A
+  // plain event change from another widget sets no flag, so the browser stays on
+  // the category cards.
+  var DRILL_KEY = "kalshi-browse-drill";
+  function onCardSelect(eventTicker, marketKey) {
+    if (!eventTicker) return;
+    if (eventTicker === CFG.selectedEventTicker) {
+      // Already the shared selection: no re-fetch will follow, so drill now.
+      openEvent(eventTicker, marketKey, false, false);
+      return;
+    }
+    try { window.sessionStorage.setItem(DRILL_KEY, JSON.stringify([eventTicker, marketKey || ""])); } catch (e) {}
+    selectEvent(eventTicker, marketKey);
   }
-  function writeOpened(value) {
-    try { window.sessionStorage.setItem(OPENED_KEY, value); } catch (e) {}
-  }
-  if (CFG.selectedEventTicker) {
-    var openedTarget = JSON.stringify([CFG.selectedEventTicker, CFG.selectedMarketKey || ""]);
-    if (CFG.emitOnLoad === true || openedTarget !== readOpened()) {
-      window.setTimeout(function () {
-        writeOpened(openedTarget);
-        openEvent(CFG.selectedEventTicker, CFG.selectedMarketKey || "", true, CFG.emitOnLoad === true);
-      }, 0);
+  function drillOnLoad() {
+    var raw;
+    try { raw = window.sessionStorage.getItem(DRILL_KEY); } catch (e) { return; }
+    if (!raw) return;
+    var target;
+    try { target = JSON.parse(raw); } catch (e) { return; }
+    if (target && target[0] && target[0] === CFG.selectedEventTicker) {
+      try { window.sessionStorage.removeItem(DRILL_KEY); } catch (e) {}
+      window.setTimeout(function () { openEvent(target[0], target[1] || "", true, false); }, 0);
     }
   }
+  drillOnLoad();
   function buildGrid() {
     if (gridApi || !window.agGrid) return;
     gridApi = agGrid.createGrid(document.getElementById("ob-grid"), {
@@ -225,7 +233,7 @@ _BRIDGE_JS = r"""
       ],
       onRowClicked: function (e) {
         if (e.data && e.data.event_ticker) {
-          openEvent(e.data.event_ticker, e.data.market_key || "", false, true);
+          onCardSelect(e.data.event_ticker, e.data.market_key || "");
         }
       }
     });
@@ -249,11 +257,9 @@ _BRIDGE_JS = r"""
     var targetEl = event.target && event.target.closest ? event.target.closest("a.event[data-event-ticker]") : null;
     if (!targetEl) return;
     event.preventDefault();
-    openEvent(
+    onCardSelect(
       targetEl.getAttribute("data-event-ticker"),
-      targetEl.getAttribute("data-market-key") || "",
-      false,
-      true
+      targetEl.getAttribute("data-market-key") || ""
     );
   });
 })();

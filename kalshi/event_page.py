@@ -169,7 +169,7 @@ def render_event_page(
     body {{ margin: 0; min-height: 100vh; overflow: hidden; background: var(--bg); color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; font-size: 13px; }}
     .scroll {{ height: 100vh; overflow: auto; }}
-    .wrap {{ max-width: 980px; margin: 0 auto; padding: 16px 20px 60px; }}
+    .wrap {{ width: 100%; margin: 0; padding: 16px 28px 60px; }}
     .back {{ display: inline-block; margin-bottom: 14px; color: var(--accent);
       text-decoration: none; font-weight: 600; }}
     .back:hover {{ text-decoration: underline; }}

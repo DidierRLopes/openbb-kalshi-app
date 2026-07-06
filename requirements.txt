@@ -4,3 +4,4 @@ httpx
 mcp
 plotly
 python-dotenv
+diskcache

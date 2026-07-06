@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 from fastapi import HTTPException
 
+from kalshi.cache import DiskCache
 from kalshi.client import KalshiClient
 from kalshi.config import Settings
 from kalshi.formatting import build_market_key, clamp_limit, parse_market_key, to_float
@@ -55,16 +56,23 @@ def _candle_points(candles: list[dict[str, Any]]) -> list[tuple[int, float]]:
     return out
 
 
+CARD_IMAGES_KEY = "cards:images"
+EVENT_META_KEY = "cards:event_meta"
+BFF_CARDS_CHUNK = 25
+
+
 class MarketDataService:
     def __init__(
         self,
         client: KalshiClient,
         taxonomy: TaxonomyCache,
         settings: Settings,
+        cache: DiskCache | None = None,
     ) -> None:
         self._client = client
         self._taxonomy = taxonomy
         self._settings = settings
+        self._cache = cache
 
     async def fetch_events_for_series(
         self,
@@ -96,44 +104,112 @@ class MarketDataService:
         parts = urlsplit(self._settings.api_base_url)
         return f"{parts.scheme}://{parts.netloc}/v1/bff/cards"
 
+    @staticmethod
+    def _card_entry(market: dict[str, Any]) -> dict[str, str]:
+        """Both light and dark image + accent colour for one market card."""
+        return {
+            "il": market.get("image_url_light_mode") or market.get("image_url") or "",
+            "cl": market.get("background_color_light_mode") or market.get("background_color") or "",
+            "id": market.get("image_url_dark_mode") or market.get("image_url") or "",
+            "cd": market.get("background_color_dark_mode") or market.get("background_color") or "",
+        }
+
     async def card_images(
         self,
         event_tickers: list[str],
         light: bool = False,
     ) -> dict[str, dict[str, str]]:
-        """Per-market image and accent colour, keyed by market ticker."""
+        """Per-market image and accent colour, keyed by market ticker. Served from
+        the warmed cache; any events not yet warmed are fetched live."""
         tickers = [t for t in dict.fromkeys(event_tickers) if t]
         if not tickers:
             return {}
+        blob = (self._cache and await self._cache.get(CARD_IMAGES_KEY)) or {}
+        image_key, color_key = ("il", "cl") if light else ("id", "cd")
+        images: dict[str, dict[str, str]] = {}
+        missing: list[str] = []
+        for event_ticker in tickers:
+            cards = blob.get(event_ticker)
+            if cards is None:
+                missing.append(event_ticker)
+                continue
+            for market_ticker, entry in cards.items():
+                images[market_ticker] = {
+                    "image_url": entry.get(image_key, ""),
+                    "color": entry.get(color_key, ""),
+                }
+        if missing:
+            fetched_cards, _ = await self._fetch_cards(missing)
+            for event_ticker, cards in fetched_cards.items():
+                for market_ticker, entry in cards.items():
+                    images[market_ticker] = {
+                        "image_url": entry.get(image_key, ""),
+                        "color": entry.get(color_key, ""),
+                    }
+        return images
+
+    async def _fetch_cards(
+        self, event_tickers: list[str], *, no_store: bool = False
+    ) -> tuple[dict[str, dict[str, dict[str, str]]], dict[str, dict[str, str]]]:
+        """Card images `{event_ticker: {market_ticker: entry}}` (both themes) and
+        event metadata `{event_ticker: {title, subtitle}}` from the BFF cards API."""
         url = self._bff_cards_url()
-        chunks = [tickers[i : i + 25] for i in range(0, len(tickers), 25)]
+        chunks = [
+            event_tickers[i : i + BFF_CARDS_CHUNK]
+            for i in range(0, len(event_tickers), BFF_CARDS_CHUNK)
+        ]
 
         async def fetch(chunk: list[str]) -> dict[str, Any]:
             try:
-                return await self._client.get(url, {"event_tickers": ",".join(chunk)}, ttl=600)
+                return await self._client.get(
+                    url, {"event_tickers": ",".join(chunk)}, ttl=600, no_store=no_store
+                )
             except HTTPException:
                 return {}
 
         pages = await asyncio.gather(*[fetch(chunk) for chunk in chunks])
-        images: dict[str, dict[str, str]] = {}
+        cards: dict[str, dict[str, dict[str, str]]] = {}
+        meta: dict[str, dict[str, str]] = {}
         for page in pages:
             for card in page.get("cards") or []:
+                event_ticker = card.get("event_ticker") or ""
+                if not event_ticker:
+                    continue
+                meta[event_ticker] = {
+                    "title": card.get("event_title") or "",
+                    "subtitle": card.get("event_subtitle") or "",
+                }
+                markets = cards.setdefault(event_ticker, {})
                 for market in card.get("markets") or []:
-                    ticker = market.get("ticker")
-                    if not ticker:
-                        continue
-                    image = (
-                        market.get("image_url_light_mode" if light else "image_url_dark_mode")
-                        or market.get("image_url")
-                        or ""
-                    )
-                    color = (
-                        market.get("background_color_light_mode" if light else "background_color_dark_mode")
-                        or market.get("background_color")
-                        or ""
-                    )
-                    images[ticker] = {"image_url": image, "color": color}
-        return images
+                    market_ticker = market.get("ticker")
+                    if market_ticker:
+                        markets[market_ticker] = self._card_entry(market)
+        return cards, meta
+
+    async def warm_card_images(self, event_tickers: list[str]) -> int:
+        """Fetch and persist card images (both themes) and event titles for every
+        event, paced so the ingest never spikes. Returns the number warmed."""
+        if self._cache is None:
+            return 0
+        tickers = [t for t in dict.fromkeys(event_tickers) if t]
+        blob: dict[str, dict[str, dict[str, str]]] = {}
+        meta: dict[str, dict[str, str]] = {}
+        step = BFF_CARDS_CHUNK * 8
+        for start in range(0, len(tickers), step):
+            batch = tickers[start : start + step]
+            cards, batch_meta = await self._fetch_cards(batch, no_store=True)
+            blob.update(cards)
+            meta.update(batch_meta)
+            await asyncio.sleep(self._settings.stats_page_pause)
+        await self._cache.set(CARD_IMAGES_KEY, blob)
+        await self._cache.set(EVENT_META_KEY, meta)
+        return len(blob)
+
+    async def event_meta(self) -> dict[str, dict[str, str]]:
+        """`{event_ticker: {title, subtitle}}` warmed from the BFF cards API."""
+        if self._cache is None:
+            return {}
+        return await self._cache.get(EVENT_META_KEY) or {}
 
     async def fetch_document(self, market_key: str | None, doc: str) -> tuple[bytes, str]:
         """Download a market's rules / contract-terms PDF."""

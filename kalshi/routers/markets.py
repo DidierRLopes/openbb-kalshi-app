@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 
 from kalshi.dependencies import get_service, get_stats, get_taxonomy, resolve_base_url
-from kalshi.formatting import build_market_key, parse_market_key, pct, to_float
+from kalshi.formatting import build_market_key, parse_market_key, parse_selection, pct, to_float
 from kalshi.ladder import render_ladder
 from kalshi.marketrules import render_market_rules
 from kalshi.mcp_server import current_selection, set_selection, subscribe_selection, unsubscribe_selection
@@ -36,10 +36,11 @@ async def effective_market_key(
     market_key: str = Query(""),
     event_ticker: str = Query(""),
     category: str = Query("All"),
+    selection: str = Query(""),
     service: MarketDataService = Depends(get_service),
     stats: MarketStatsCache = Depends(get_stats),
 ) -> str:
-    """Selected market, else the top market of the event in scope."""
+    """Selected market, else the top market of the event in the selected scope."""
     et = (event_ticker or "").strip()
     mk = (market_key or "").strip()
     if mk and _event_ok(mk, et):
@@ -47,7 +48,12 @@ async def effective_market_key(
     selected = current_selection()
     if selected and _event_ok(selected, et):
         return selected
-    et = et or await stats.default_event_ticker(category=category)
+    tag: str | None = None
+    if (selection or "").strip():
+        sel = parse_selection(selection)
+        category = sel["category"] or "All"
+        tag = sel["tag"] or None
+    et = et or await stats.default_event_ticker(category=category, tag=tag)
     if not et:
         return ""
     try:
@@ -101,9 +107,8 @@ async def market_brief(
         series_ticker=selected["series_ticker"],
         theme=theme,
         doc_base=doc_base,
-        param_defs=[],
+        param_defs=[{"paramName": "event_ticker"}, {"paramName": "market_key"}],
         sync_url=f"{base_url}/selection_stream",
-        current_market=selected["market_key"],
     )
     return HTMLResponse(content=html)
 

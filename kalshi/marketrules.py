@@ -25,24 +25,48 @@ _BRIDGE_JS = """<script>
     if (typeof raw === "object" && raw) raw = raw.value;
     return (raw === "dark" || raw === "light") ? raw : null;
   }
+  function marketKeyEvent(marketKey) {
+    var parts = String(marketKey || "").split("|");
+    return parts.length >= 3 ? parts[2].trim() : "";
+  }
+  function normalizeMarketKey(eventTicker, marketKey) {
+    var mk = String(marketKey || "");
+    var mkEvent = marketKeyEvent(mk);
+    if (eventTicker && mk && mkEvent && mkEvent !== String(eventTicker)) return "";
+    return mk;
+  }
+  function emitWidgetParams(params) {
+    if (target === window || !params) return;
+    target.postMessage({ type: "openbb:widget-params:update", params: params }, "*");
+  }
   window.addEventListener("message", function (event) {
     var d = event.data;
     if (!d || typeof d !== "object") return;
-    var updates = {};
+    var incoming = {};
     var th = extractTheme(d);
-    if (th) updates.theme = th;
-    if (d.type === "openbb-params-update" && d.params) {
-      var p = d.params;
-      if (Array.isArray(p)) p.forEach(function (x) { updates[x.paramName || x.name] = x.value; });
-      else Object.keys(p).forEach(function (k) {
+    if (th) incoming.theme = th;
+    if (d.type === "openbb-params-update") {
+      var p = d.params || d.payload || d.data || d.values;
+      if (Array.isArray(p)) p.forEach(function (x) { incoming[x.paramName || x.name] = x.value; });
+      else if (p && typeof p === "object") Object.keys(p).forEach(function (k) {
         var v = p[k];
-        updates[k] = (v && typeof v === "object" && "value" in v) ? v.value : v;
+        incoming[k] = (v && typeof v === "object" && "value" in v) ? v.value : v;
       });
     }
     var qs = new URLSearchParams(window.location.search), changed = false;
-    Object.keys(updates).forEach(function (k) {
+    // When the event changes, a market_key from the previous event is stale.
+    // Clear it so the reload resolves the new event's default market, and tell
+    // the workspace so the shared Market selector resets too.
+    var eventTicker = String(incoming.event_ticker != null ? incoming.event_ticker : (qs.get("event_ticker") || ""));
+    var marketKey = String(incoming.market_key != null ? incoming.market_key : (qs.get("market_key") || ""));
+    var normalizedMarketKey = normalizeMarketKey(eventTicker, marketKey);
+    if (marketKey && normalizedMarketKey !== marketKey) {
+      incoming.market_key = "";
+      emitWidgetParams({ event_ticker: eventTicker, market_key: "" });
+    }
+    Object.keys(incoming).forEach(function (k) {
       if (k !== "theme" && PARAM_KEYS.indexOf(k) < 0) return;
-      var v = updates[k];
+      var v = incoming[k];
       if (v == null) return;
       if (qs.get(k) !== String(v)) { qs.set(k, String(v)); changed = true; }
     });
@@ -53,12 +77,15 @@ _BRIDGE_JS = """<script>
 
 _SYNC_JS = """<script>
 (function () {
-  var CURRENT = __CURRENT__, SYNC = __SYNC__;
+  var SYNC = __SYNC__;
   if (!SYNC || typeof EventSource === "undefined") return;
   new EventSource(SYNC).onmessage = function (e) {
     var mk = e.data;
-    if (mk && mk !== CURRENT) {
-      var qs = new URLSearchParams(window.location.search);
+    var qs = new URLSearchParams(window.location.search);
+    // Compare against the market_key already in the URL, not the rendered
+    // market. A stale selection resolves to the event default, which would
+    // never equal the pushed key and reload forever.
+    if (mk && mk !== (qs.get("market_key") || "")) {
       qs.set("market_key", mk);
       window.location.search = qs.toString();
     }
@@ -133,15 +160,10 @@ def render_market_rules(
     doc_base: str = "",
     param_defs: list[dict[str, Any]] | None = None,
     sync_url: str = "",
-    current_market: str = "",
 ) -> str:
     is_light = theme == "light"
     bridge = _BRIDGE_JS.replace("__PARAM_DEFS__", json.dumps(param_defs or []))
-    poller = (
-        _SYNC_JS.replace("__CURRENT__", json.dumps(current_market)).replace("__SYNC__", json.dumps(sync_url))
-        if sync_url
-        else ""
-    )
+    poller = _SYNC_JS.replace("__SYNC__", json.dumps(sync_url)) if sync_url else ""
     title = market.get("title") or market_ticker
     outcome = market.get("yes_sub_title") or market.get("subtitle") or ""
     status = (market.get("status") or "").title()
