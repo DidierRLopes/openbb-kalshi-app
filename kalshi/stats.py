@@ -365,10 +365,9 @@ class MarketStatsCache:
         sort: str = "trending",
         reverse: bool = False,
         outcomes_per_event: int = 4,
-        limit: int | None = 40,
     ) -> list[dict[str, Any]]:
-        """Markets grouped into event cards for the HTML browser. `limit=None`
-        returns every event in scope (no truncation)."""
+        """Every matching event as an ordered card. The caller paginates with
+        limit/offset; the full list is returned so callers can report the total."""
         cutoff = None if close_within_days is None else time.time() + close_within_days * 86400
         terms = _terms(search)
         events: dict[str, dict[str, Any]] = {}
@@ -441,13 +440,12 @@ class MarketStatsCache:
         for event in cards:
             event["outcomes"].sort(key=lambda o: to_float(o["volume_total"]), reverse=True)
         cards.sort(key=sort_key, reverse=descending)
-        result = cards if limit is None else cards[:limit]
         now = time.time()
-        for event in result:
+        for event in cards:
             event["live"] = _live(event.get("open_ts"), event.get("close_ts"), event.pop("_priced", False), now)
             for internal in ("volatility", "fifty", "_matched"):
                 event.pop(internal, None)
-        return result
+        return cards
 
     async def warmup(self) -> None:
         """Blocking initial load: run one full ingest cycle (taxonomy + market

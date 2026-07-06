@@ -221,12 +221,16 @@ class AggregatorTests(_StatsTestBase):
         self.assertEqual(len(await self.stats.discover_events(limit=None)), 30)
         self.assertEqual(len(await self.stats.discover_events(limit=5)), 5)
 
-    async def test_browse_events_no_limit_returns_all(self) -> None:
+    async def test_browse_events_returns_all_for_paging(self) -> None:
         await self._seed([[
             _market(f"EVT{i}", ticker=f"M{i}", volume_total=float(i)) for i in range(30)
         ]])
-        self.assertEqual(len(await self.stats.browse_events(limit=None)), 30)
-        self.assertEqual(len(await self.stats.browse_events(limit=5)), 5)
+        # browse_events returns the full ordered list; the caller pages it.
+        events = await self.stats.browse_events(sort="volume")
+        self.assertEqual(len(events), 30)
+        self.assertEqual(
+            [e["event_ticker"] for e in events[:3]], ["EVT29", "EVT28", "EVT27"]
+        )
 
     async def test_browse_events_bounds_outcomes(self) -> None:
         markets = [
