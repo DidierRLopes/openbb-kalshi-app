@@ -48,22 +48,14 @@ def _event_row(event: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _short(value: Any, max_len: int = 88) -> str:
-    text = str(value or "")
-    return text if len(text) <= max_len else f"{text[: max_len - 3]}..."
-
-
 async def _browse_param_defs(
     taxonomy: TaxonomyCache,
     scope: dict[str, set[str]],
-    events: list[dict[str, Any]],
-    event_ticker: str,
-    market_key: str,
+    event_ticker: str = "",
+    market_key: str = "",
     selection: str = "All",
 ) -> list[dict[str, Any]]:
-    """Toolbar params for the browse iframe. Browse belongs to the event and
-    market groups so a card click drives those widgets, but its bridge IGNORES
-    incoming event_ticker/market_key so the iframe is never reset by them."""
+    """Toolbar param definitions for the browse iframe."""
     live_categories = scope["categories"]
     live_tags = scope["tags"]
     sel = parse_selection(selection)
@@ -83,36 +75,12 @@ async def _browse_param_defs(
             if not live_tags or t["tag"] in live_tags
         ]
 
-    event_options = []
-    market_options = []
-    for event in events:
-        ticker = str(event.get("event_ticker") or "")
-        if not ticker:
-            continue
-        event_options.append({
-            "label": f"{_short(event.get('title') or ticker)} ({ticker})",
-            "value": ticker,
-        })
-        for outcome in event.get("outcomes") or []:
-            outcome_market_key = str(outcome.get("market_key") or "")
-            if not outcome_market_key:
-                continue
-            market_options.append({
-                "label": f"{_short(outcome.get('name') or outcome_market_key, 64)} ({ticker})",
-                "value": outcome_market_key,
-            })
-
-    if event_ticker and not any(option["value"] == event_ticker for option in event_options):
-        event_options.insert(0, {"label": event_ticker, "value": event_ticker})
-
     return [
         {"paramName": "search", "label": "Search", "type": "text", "value": ""},
         {"paramName": "selection", "label": "Category / Topic", "type": "text", "value": selection or "All",
          "options": selections},
-        {"paramName": "event_ticker", "label": "Event", "type": "text", "value": event_ticker,
-         "options": event_options},
-        {"paramName": "market_key", "label": "Market", "type": "text", "value": market_key,
-         "options": market_options},
+        {"paramName": "event_ticker", "label": "Event", "type": "text", "value": event_ticker},
+        {"paramName": "market_key", "label": "Market", "type": "text", "value": market_key},
         {"paramName": "sort", "label": "Sort", "type": "text", "value": "trending", "options": [
             {"label": "Trending", "value": "trending"}, {"label": "Volatile", "value": "volatile"},
             {"label": "New", "value": "new"}, {"label": "Closing soon", "value": "closing_soon"},
@@ -155,7 +123,6 @@ def _volume_table_rows(
     for row in rows:
         label = str(row.get("category") or "")
         if category:
-            # Rows are tags within the selected category.
             selection = compose_selection(category, label)
         else:
             selection = compose_selection(label)
@@ -219,6 +186,14 @@ async def browse_markets(
     if selected_event and selected_market_event and selected_market_event != selected_event:
         selected_market = ""
 
+    base_url = resolve_base_url(request)
+    filters = {
+        "search": search, "selection": selection, "sort": sort, "frequency": frequency,
+        "close_within": close_within, "reverse": "true" if reverse else "", "theme": theme,
+        "limit": str(limit), "offset": str(offset) if offset else "",
+    }
+    back_qs = urlencode({k: v for k, v in filters.items() if v})
+
     all_events = await stats.browse_events(
         category=category,
         tag=tag,
@@ -242,17 +217,10 @@ async def browse_markets(
             outcome["image_url"] = info.get("image_url", "")
             outcome["color"] = info.get("color", "")
 
-    base_url = resolve_base_url(request)
     scope = await stats.active_scope()
-    filters = {
-        "search": search, "selection": selection, "sort": sort, "frequency": frequency,
-        "close_within": close_within, "reverse": "true" if reverse else "", "theme": theme,
-        "limit": str(limit), "offset": str(offset) if offset else "",
-    }
-    back_qs = urlencode({k: v for k, v in filters.items() if v})
     html = render_browse(
         events, rows=[_event_row(event) for event in events],
-        param_defs=await _browse_param_defs(taxonomy, scope, events, selected_event, selected_market, selection),
+        param_defs=await _browse_param_defs(taxonomy, scope, selected_event, selected_market, selection),
         total=total, search=search, theme=theme, base_url=base_url, back_qs=back_qs,
         selected_event_ticker=selected_event,
         selected_market_key=selected_market,

@@ -31,6 +31,23 @@ _BRIDGE_JS = r"""
   var PARAM_DEFS = JSON.parse(document.getElementById("ob-params").textContent || "[]");
   var ROWS = JSON.parse(document.getElementById("ob-rowdata").textContent || "[]");
   var CFG = JSON.parse(document.getElementById("ob-cfg").textContent || "{}");
+  var DRILL_KEY = "kalshi-browse-drill";
+  function browseCategory() {
+    var sel = new URLSearchParams(window.location.search).get("selection") || "All";
+    return sel.split(/›|>/)[0].trim() || "All";
+  }
+  var drillRaw = "";
+  try { drillRaw = window.sessionStorage.getItem(DRILL_KEY) || ""; } catch (e) {}
+  if (drillRaw) {
+    var drill = null;
+    try { drill = JSON.parse(drillRaw); } catch (e) {}
+    var cat = browseCategory();
+    if (drill && drill.url && (cat === "All" || cat === drill.cat)) {
+      window.location.replace(drill.url);
+      return;
+    }
+    try { window.sessionStorage.removeItem(DRILL_KEY); } catch (e) {}
+  }
   var PARAM_KEYS = PARAM_DEFS.map(function (p) { return p.paramName; });
   var GROUP_FILTER_VALUES = {};
   PARAM_DEFS.forEach(function (p) {
@@ -121,11 +138,6 @@ _BRIDGE_JS = r"""
       incoming.search = "";
       emitWidgetParams({ search: "" });
     }
-    // The shared event and market selections must NOT change what the browser
-    // shows — it stays at the category card list and only advances when a card
-    // is clicked. Ignore them here so an incoming event/market update (including
-    // the echo of our own card-click emit) can't reload the card list and cancel
-    // the navigation to the event page. Only display params trigger a reload.
     Object.keys(incoming).forEach(function (k) {
       if (k === "event_ticker" || k === "market_key") return;
       var v = incoming[k];
@@ -177,42 +189,15 @@ _BRIDGE_JS = r"""
     if (CFG.back) u += "&back=" + encodeURIComponent(CFG.back);
     return u;
   }
-  function openEvent(eventTicker, marketKey, replace, emit) {
+  function openEvent(eventTicker, marketKey) {
     if (!eventTicker) return;
-    if (emit !== false) selectEvent(eventTicker, marketKey);
-    var url = eventUrl(eventTicker, marketKey);
-    if (replace) window.location.replace(url);
-    else window.location.href = url;
-  }
-  // Clicking a card must (a) drive the Event/Market widgets and (b) navigate this
-  // iframe to the event page. Emitting the selection makes the workspace RE-FETCH
-  // this iframe (server-side), which cancels any direct navigation. So we record
-  // the click, emit, and then drill in on the reload that the emit triggers. A
-  // plain event change from another widget sets no flag, so the browser stays on
-  // the category cards.
-  var DRILL_KEY = "kalshi-browse-drill";
-  function onCardSelect(eventTicker, marketKey) {
-    if (!eventTicker) return;
-    if (eventTicker === CFG.selectedEventTicker) {
-      // Already the shared selection: no re-fetch will follow, so drill now.
-      openEvent(eventTicker, marketKey, false, false);
-      return;
-    }
-    try { window.sessionStorage.setItem(DRILL_KEY, JSON.stringify([eventTicker, marketKey || ""])); } catch (e) {}
+    try {
+      window.sessionStorage.setItem(
+        DRILL_KEY, JSON.stringify({ url: eventUrl(eventTicker, marketKey), cat: browseCategory() })
+      );
+    } catch (e) {}
     selectEvent(eventTicker, marketKey);
   }
-  function drillOnLoad() {
-    var raw;
-    try { raw = window.sessionStorage.getItem(DRILL_KEY); } catch (e) { return; }
-    if (!raw) return;
-    var target;
-    try { target = JSON.parse(raw); } catch (e) { return; }
-    if (target && target[0] && target[0] === CFG.selectedEventTicker) {
-      try { window.sessionStorage.removeItem(DRILL_KEY); } catch (e) {}
-      window.setTimeout(function () { openEvent(target[0], target[1] || "", true, false); }, 0);
-    }
-  }
-  drillOnLoad();
   function buildGrid() {
     if (gridApi || !window.agGrid) return;
     gridApi = agGrid.createGrid(document.getElementById("ob-grid"), {
@@ -233,7 +218,7 @@ _BRIDGE_JS = r"""
       ],
       onRowClicked: function (e) {
         if (e.data && e.data.event_ticker) {
-          onCardSelect(e.data.event_ticker, e.data.market_key || "");
+          openEvent(e.data.event_ticker, e.data.market_key || "");
         }
       }
     });
@@ -257,7 +242,7 @@ _BRIDGE_JS = r"""
     var targetEl = event.target && event.target.closest ? event.target.closest("a.event[data-event-ticker]") : null;
     if (!targetEl) return;
     event.preventDefault();
-    onCardSelect(
+    openEvent(
       targetEl.getAttribute("data-event-ticker"),
       targetEl.getAttribute("data-market-key") || ""
     );

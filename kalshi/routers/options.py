@@ -108,8 +108,6 @@ async def _event_options(
         ticker = event.get("event_ticker", "")
         if not ticker:
             continue
-        # The event's own title carries the distinguishing period/strike (e.g.
-        # "September 2026: …"); the snapshot only has the shared market question.
         real_title = (event_meta.get(ticker) or {}).get("title") or event.get("title") or ticker
         title = _truncate(real_title, 90)
         leading = event.get("leading_outcome")
@@ -147,8 +145,6 @@ async def _market_options(
     probability_mode = include_top or sort == "probability"
     sort_key = probability_sort if probability_mode else volume_sort
     markets = sorted(resolved["markets"], key=sort_key, reverse=True)
-    # Only history-style selectors ask for default outcomes. Ordinary market
-    # selectors should update their option list without choosing a market.
     selected_limit = TOP_HISTORY_MARKET_COUNT if probability_mode else 0
     seen: set[str] = set()
     selected_count = 0

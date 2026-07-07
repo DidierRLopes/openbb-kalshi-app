@@ -39,8 +39,6 @@ class Settings:
     realtime_ttl: int = 10
     taxonomy_ttl: int = 600
 
-    # On-disk diskcache lives here (a mounted volume in production). The `http`
-    # response cache and the durable `data` snapshot are subdirectories of it.
     cache_dir: str = str(ROOT_PATH / ".cache")
     http_cache_size_limit_mb: int = 256
 

@@ -225,7 +225,6 @@ class AggregatorTests(_StatsTestBase):
         await self._seed([[
             _market(f"EVT{i}", ticker=f"M{i}", volume_total=float(i)) for i in range(30)
         ]])
-        # browse_events returns the full ordered list; the caller pages it.
         events = await self.stats.browse_events(sort="volume")
         self.assertEqual(len(events), 30)
         self.assertEqual(
@@ -261,7 +260,7 @@ class IngestTests(_StatsTestBase):
 
     async def test_scan_publishes_full_universe_across_pages(self) -> None:
         stats, client = self._stats([
-            ([_raw("A"), _raw("B", vol24=0, oi=0)], "cur1"),  # B fails the activity filter
+            ([_raw("A"), _raw("B", vol24=0, oi=0)], "cur1"),
             ([_raw("C")], None),
         ])
         await stats._scan_and_publish()

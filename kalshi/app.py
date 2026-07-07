@@ -37,8 +37,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.service = service
         app.state.stats = stats
         set_mcp_context(service, stats, taxonomy)
-        # Blocking startup warmup: the app does not begin serving until the
-        # taxonomy, market snapshot, and card images are loaded.
         await stats.warmup()
         ingestor = asyncio.create_task(stats.run_ingest_loop())
         try:

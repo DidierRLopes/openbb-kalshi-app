@@ -54,9 +54,6 @@ _BRIDGE_JS = """<script>
       });
     }
     var qs = new URLSearchParams(window.location.search), changed = false;
-    // When the event changes, a market_key from the previous event is stale.
-    // Clear it so the reload resolves the new event's default market, and tell
-    // the workspace so the shared Market selector resets too.
     var eventTicker = String(incoming.event_ticker != null ? incoming.event_ticker : (qs.get("event_ticker") || ""));
     var marketKey = String(incoming.market_key != null ? incoming.market_key : (qs.get("market_key") || ""));
     var normalizedMarketKey = normalizeMarketKey(eventTicker, marketKey);
@@ -82,9 +79,6 @@ _SYNC_JS = """<script>
   new EventSource(SYNC).onmessage = function (e) {
     var mk = e.data;
     var qs = new URLSearchParams(window.location.search);
-    // Compare against the market_key already in the URL, not the rendered
-    // market. A stale selection resolves to the event default, which would
-    // never equal the pushed key and reload forever.
     if (mk && mk !== (qs.get("market_key") || "")) {
       qs.set("market_key", mk);
       window.location.search = qs.toString();

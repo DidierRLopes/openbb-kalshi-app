@@ -240,12 +240,17 @@ def render_event_page(
   <script id="ev-fig" type="application/json">{figure_json}</script>
   <script>
   (function () {{
+    var backLink = document.querySelector("a.back");
+    if (backLink) {{
+      backLink.addEventListener("click", function () {{
+        try {{ window.sessionStorage.removeItem("kalshi-browse-drill"); }} catch (e) {{}}
+      }});
+    }}
     document.querySelectorAll(".ts-d").forEach(function (el) {{
       var ms = Number(el.getAttribute("data-ts")); if (!ms) return;
       el.textContent = (el.getAttribute("data-prefix") || "")
         + new Date(ms).toLocaleString([], {{ month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }});
     }});
-    // Plotly renders datetime axes in UTC; shift x to the viewer's local time.
     function localize(fig) {{
       if (fig && fig.data) fig.data.forEach(function (tr) {{
         if (tr.x && tr.x.length) tr.x = tr.x.map(function (v) {{
