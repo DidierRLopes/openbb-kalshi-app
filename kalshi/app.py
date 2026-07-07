@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from kalshi.cache import open_caches
 from kalshi.client import KalshiClient
 from kalshi.config import Settings
 from kalshi.mcp_server import mcp as kalshi_mcp, set_context as set_mcp_context
@@ -23,22 +24,35 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        client = KalshiClient(settings)
-        taxonomy = TaxonomyCache(client, settings)
-        stats = MarketStatsCache(client, taxonomy, settings)
+        http_cache, data_cache = open_caches(settings)
+        client = KalshiClient(settings, http_cache)
+        taxonomy = TaxonomyCache(client, data_cache, settings)
+        service = MarketDataService(client, taxonomy, settings, data_cache)
+        stats = MarketStatsCache(client, taxonomy, data_cache, settings, service)
         app.state.settings = settings
+        app.state.http_cache = http_cache
+        app.state.data_cache = data_cache
         app.state.client = client
         app.state.taxonomy = taxonomy
-        app.state.service = MarketDataService(client, taxonomy, settings)
+        app.state.service = service
         app.state.stats = stats
-        set_mcp_context(app.state.service, stats, taxonomy)
-        warmer = asyncio.create_task(_warm(stats))
+        set_mcp_context(service, stats, taxonomy)
+        # Blocking startup warmup: the app does not begin serving until the
+        # taxonomy, market snapshot, and card images are loaded.
+        await stats.warmup()
+        ingestor = asyncio.create_task(stats.run_ingest_loop())
         try:
             async with kalshi_mcp.session_manager.run():
                 yield
         finally:
-            warmer.cancel()
+            ingestor.cancel()
+            try:
+                await asyncio.wait_for(ingestor, timeout=5)
+            except (asyncio.CancelledError, asyncio.TimeoutError, Exception):
+                pass
             await client.aclose()
+            await http_cache.close()
+            await data_cache.close()
 
     app = FastAPI(
         title="Kalshi Market Dashboard",
@@ -64,12 +78,3 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(markets.router)
     app.mount("/mcp", mcp_app)
     return app
-
-
-async def _warm(stats: MarketStatsCache) -> None:
-    try:
-        await stats.ensure_fresh()
-    except asyncio.CancelledError:
-        raise
-    except Exception:
-        pass

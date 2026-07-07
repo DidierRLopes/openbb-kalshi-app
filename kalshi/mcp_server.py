@@ -73,9 +73,9 @@ async def browse_kalshi_markets(
 ) -> str:
     """Top active Kalshi events filtered by category, tag, and free-text search."""
     stats: MarketStatsCache = _ctx["stats"]
-    events = await stats.browse_events(
-        category=category, tag=tag, search=search, limit=_clamp(limit, 1, 100)
-    )
+    events = (await stats.browse_events(category=category, tag=tag, search=search))[
+        : _clamp(limit, 1, 100)
+    ]
     rows = []
     for event in events:
         top = event["outcomes"][0] if event.get("outcomes") else {}

@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse
 
 from kalshi.browse import render_browse
 from kalshi.dependencies import get_service, get_stats, get_taxonomy, resolve_base_url
-from kalshi.formatting import clamp_limit, compose_selection, parse_market_key, parse_selection
+from kalshi.formatting import compose_selection, parse_market_key, parse_selection
 from kalshi.service import MarketDataService
 from kalshi.stats import MarketStatsCache
 from kalshi.taxonomy import TaxonomyCache
@@ -55,15 +55,24 @@ def _short(value: Any, max_len: int = 88) -> str:
 
 async def _browse_param_defs(
     taxonomy: TaxonomyCache,
+    scope: dict[str, set[str]],
     events: list[dict[str, Any]],
     event_ticker: str,
     market_key: str,
     selection: str = "All",
 ) -> list[dict[str, Any]]:
-    """Toolbar param definitions for the browse iframe."""
+    """Toolbar params for the browse iframe. Browse belongs to the event and
+    market groups so a card click drives those widgets, but its bridge IGNORES
+    incoming event_ticker/market_key so the iframe is never reset by them."""
+    live_categories = scope["categories"]
+    live_tags = scope["tags"]
     sel = parse_selection(selection)
     selections = [{"label": "All categories", "value": "All"}]
-    selections += [{"label": c["category"], "value": c["category"]} for c in await taxonomy.categories()]
+    selections += [
+        {"label": c["category"], "value": c["category"]}
+        for c in await taxonomy.categories()
+        if not live_categories or c["category"] in live_categories
+    ]
     if sel["category"]:
         selections += [
             {
@@ -71,6 +80,7 @@ async def _browse_param_defs(
                 "value": compose_selection(sel["category"], t["tag"]),
             }
             for t in await taxonomy.tags(category=sel["category"])
+            if not live_tags or t["tag"] in live_tags
         ]
 
     event_options = []
@@ -118,8 +128,10 @@ async def _browse_param_defs(
             {"label": "7 days", "value": "7"}, {"label": "30 days", "value": "30"},
             {"label": "90 days", "value": "90"}]},
         {"paramName": "reverse", "label": "Reverse sort", "type": "boolean", "value": "false"},
-        {"paramName": "limit", "label": "Max events", "type": "number", "value": "40",
-         "min": 1, "max": 150, "step": 10},
+        {"paramName": "limit", "label": "Limit", "type": "number", "value": "50",
+         "min": 1, "max": 500, "step": 10},
+        {"paramName": "offset", "label": "Offset", "type": "number", "value": "0",
+         "min": 0, "max": 100000, "step": 50},
     ]
 
 
@@ -187,7 +199,8 @@ async def browse_markets(
     event_ticker: str = Query(""),
     market_key: str = Query(""),
     reverse: bool = Query(False),
-    limit: int = Query(40, ge=1, le=150),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     theme: str = Query("dark"),
     raw: bool = Query(False),
     stats: MarketStatsCache = Depends(get_stats),
@@ -206,7 +219,7 @@ async def browse_markets(
     if selected_event and selected_market_event and selected_market_event != selected_event:
         selected_market = ""
 
-    events = await stats.browse_events(
+    all_events = await stats.browse_events(
         category=category,
         tag=tag,
         search=search,
@@ -214,8 +227,9 @@ async def browse_markets(
         frequency=frequency,
         sort=sort,
         reverse=reverse,
-        limit=clamp_limit(limit, maximum=150),
     )
+    total = len(all_events)
+    events = all_events[offset : offset + limit]
     if raw:
         return [_event_row(event) for event in events]
     images = await service.card_images(
@@ -229,15 +243,17 @@ async def browse_markets(
             outcome["color"] = info.get("color", "")
 
     base_url = resolve_base_url(request)
+    scope = await stats.active_scope()
     filters = {
         "search": search, "selection": selection, "sort": sort, "frequency": frequency,
         "close_within": close_within, "reverse": "true" if reverse else "", "theme": theme,
+        "limit": str(limit), "offset": str(offset) if offset else "",
     }
     back_qs = urlencode({k: v for k, v in filters.items() if v})
     html = render_browse(
         events, rows=[_event_row(event) for event in events],
-        param_defs=await _browse_param_defs(taxonomy, events, selected_event, selected_market, selection),
-        total=None, search=search, theme=theme, base_url=base_url, back_qs=back_qs,
+        param_defs=await _browse_param_defs(taxonomy, scope, events, selected_event, selected_market, selection),
+        total=total, search=search, theme=theme, base_url=base_url, back_qs=back_qs,
         selected_event_ticker=selected_event,
         selected_market_key=selected_market,
         selection_prefix=f"{sel['category'] or 'All'} > {sel['tag'] or 'All'}",

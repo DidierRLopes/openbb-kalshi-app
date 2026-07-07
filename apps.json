@@ -60,6 +60,7 @@
             "w": 40,
             "h": 4,
             "groups": [
+              "Group 1",
               "Group 2"
             ]
           },
@@ -70,6 +71,7 @@
             "w": 40,
             "h": 15,
             "groups": [
+              "Group 1",
               "Group 2",
               "Group 4"
             ]
@@ -81,6 +83,7 @@
             "w": 40,
             "h": 15,
             "groups": [
+              "Group 1",
               "Group 2",
               "Group 4"
             ]
@@ -98,6 +101,7 @@
             "w": 40,
             "h": 10,
             "groups": [
+              "Group 1",
               "Group 2",
               "Group 3"
             ]
@@ -109,6 +113,7 @@
             "w": 40,
             "h": 20,
             "groups": [
+              "Group 1",
               "Group 2",
               "Group 3"
             ]
@@ -120,6 +125,7 @@
             "w": 40,
             "h": 20,
             "groups": [
+              "Group 1",
               "Group 2",
               "Group 3"
             ]
@@ -131,6 +137,7 @@
             "w": 40,
             "h": 12,
             "groups": [
+              "Group 1",
               "Group 2",
               "Group 3"
             ]
@@ -146,7 +153,14 @@
         "defaultValue": "All",
         "widgetIds": [
           "volume_by_category",
-          "browse_markets"
+          "browse_markets",
+          "event_metrics",
+          "event_outcomes",
+          "event_history_chart",
+          "event_markets",
+          "market_brief",
+          "orderbook_ladder",
+          "selected_trades"
         ]
       },
       {
