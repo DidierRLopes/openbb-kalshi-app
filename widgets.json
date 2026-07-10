@@ -94,6 +94,7 @@
             "renderFnParams": {
               "actionType": "groupBy",
               "groupBy": {
+                "forceUpdate": true,
                 "paramName": "selection",
                 "valueField": "selection"
               }
