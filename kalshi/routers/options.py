@@ -36,46 +36,60 @@ def _keep(value: str, live: set[str]) -> bool:
     return not live or value in live
 
 
-async def _category_options(taxonomy: TaxonomyCache, scope: dict[str, set[str]]) -> list[Option]:
+async def _category_options(
+    taxonomy: TaxonomyCache, scope: dict[str, set[str]], counts: dict[str, dict[str, int]]
+) -> list[Option]:
     live = scope["categories"]
+    cat_counts = counts["categories"]
     options: list[Option] = [{"label": "All categories", "value": ALL}]
     for entry in await taxonomy.categories():
         if not _keep(entry["category"], live):
             continue
-        options.append({"label": f"{entry['category']} ({entry['series_count']})", "value": entry["category"]})
+        options.append({
+            "label": f"{entry['category']} ({cat_counts.get(entry['category'], 0)})",
+            "value": entry["category"],
+        })
     return options
 
 
 async def _selection_options(
-    taxonomy: TaxonomyCache, scope: dict[str, set[str]], selection: str
+    taxonomy: TaxonomyCache, scope: dict[str, set[str]], counts: dict[str, dict[str, int]], selection: str
 ) -> list[Option]:
     """`Category > Topic` drill options; topics are listed for the active category."""
     live_categories = scope["categories"]
     live_tags = scope["tags"]
+    cat_counts = counts["categories"]
+    tag_counts = counts["tags"]
     options: list[Option] = [{"label": "All categories", "value": ALL}]
     current = parse_selection(selection)
     for entry in await taxonomy.categories():
         if not _keep(entry["category"], live_categories):
             continue
-        options.append({"label": f"{entry['category']} ({entry['series_count']})", "value": entry["category"]})
+        options.append({
+            "label": f"{entry['category']} ({cat_counts.get(entry['category'], 0)})",
+            "value": entry["category"],
+        })
     if current["category"]:
         for entry in await taxonomy.tags(category=current["category"]):
             if not _keep(entry["tag"], live_tags):
                 continue
             options.append({
-                "label": f"{current['category']} › {entry['tag']} ({entry['series_count']})",
+                "label": f"{current['category']} › {entry['tag']} ({tag_counts.get(entry['tag'], 0)})",
                 "value": compose_selection(current["category"], entry["tag"]),
             })
     return options
 
 
-async def _tag_options(taxonomy: TaxonomyCache, scope: dict[str, set[str]], category: str) -> list[Option]:
+async def _tag_options(
+    taxonomy: TaxonomyCache, scope: dict[str, set[str]], counts: dict[str, dict[str, int]], category: str
+) -> list[Option]:
     live = scope["tags"]
+    tag_counts = counts["tags"]
     options: list[Option] = [{"label": "All tags", "value": ALL}]
     for entry in await taxonomy.tags(category=category):
         if not _keep(entry["tag"], live):
             continue
-        options.append({"label": f"{entry['tag']} ({entry['series_count']})", "value": entry["tag"]})
+        options.append({"label": f"{entry['tag']} ({tag_counts.get(entry['tag'], 0)})", "value": entry["tag"]})
     return options
 
 
@@ -200,10 +214,11 @@ async def options(
     if field == "market_key":
         return await _market_options(service, event_ticker, market_key, include_all, include_top, sort)
     scope = await stats.active_scope()
+    counts = await stats.active_counts()
     if field == "selection":
-        return await _selection_options(taxonomy, scope, selection)
+        return await _selection_options(taxonomy, scope, counts, selection)
     if field == "tag":
-        return await _tag_options(taxonomy, scope, category)
+        return await _tag_options(taxonomy, scope, counts, category)
     if field == "series_ticker":
         return await _series_options(taxonomy, scope, category, tag)
-    return await _category_options(taxonomy, scope)
+    return await _category_options(taxonomy, scope, counts)

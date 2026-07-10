@@ -224,6 +224,14 @@ class MarketStatsCache:
             "series": set(scope.get("series") or []),
         }
 
+    async def active_counts(self) -> dict[str, dict[str, int]]:
+        """Count of active events per category and per tag, for the dropdown labels."""
+        counts = await self._cache.get("stats:active_counts") or {}
+        return {
+            "categories": counts.get("categories") or {},
+            "tags": counts.get("tags") or {},
+        }
+
     async def by_group(
         self,
         group_by: str = "category",
@@ -235,6 +243,7 @@ class MarketStatsCache:
         by_tag = group_by == "tag"
         cutoff = None if close_within_days is None else time.time() + close_within_days * 86400
         stats: dict[str, dict[str, float]] = {}
+        events: dict[str, set[str]] = {}
         async for market in self._iter_markets(
             category=category, tag=None if by_tag else tag, cutoff=cutoff
         ):
@@ -242,17 +251,20 @@ class MarketStatsCache:
                 keys = [t for t in (market.get("tags") or []) if t]
             else:
                 keys = [market["category"]] if market.get("category") else []
+            event = market.get("event_ticker")
             for key in keys:
                 bucket = stats.setdefault(
                     key,
-                    {"volume_24h": 0.0, "volume_total": 0.0, "open_interest": 0.0, "market_count": 0.0},
+                    {"volume_24h": 0.0, "volume_total": 0.0, "open_interest": 0.0},
                 )
                 bucket["volume_24h"] += market["volume_24h"]
                 bucket["volume_total"] += market["volume_total"]
                 bucket["open_interest"] += market["open_interest"]
-                bucket["market_count"] += 1
+                if event:
+                    events.setdefault(key, set()).add(event)
         return [
-            {"category": key, **{k: round(v, 2) for k, v in values.items()}}
+            {"category": key, "market_count": len(events.get(key, ())),
+             **{k: round(v, 2) for k, v in values.items()}}
             for key, values in stats.items()
         ]
 
@@ -513,6 +525,8 @@ class MarketStatsCache:
         active_tags: set[str] = set()
         active_series: set[str] = set()
         active_events: set[str] = set()
+        events_by_category: dict[str, set[str]] = {}
+        events_by_tag: dict[str, set[str]] = {}
         hit_ceiling = True
         try:
             for _ in range(self._settings.stats_scan_max_pages):
@@ -535,13 +549,19 @@ class MarketStatsCache:
                     chunk_index += 1
                     retained += len(chunk)
                     for row in chunk:
+                        event = row["event_ticker"]
                         if row["category"]:
                             active_categories.add(row["category"])
+                            if event:
+                                events_by_category.setdefault(row["category"], set()).add(event)
                         if row["series_ticker"]:
                             active_series.add(row["series_ticker"])
-                        if row["event_ticker"]:
-                            active_events.add(row["event_ticker"])
-                        active_tags.update(row["tags"])
+                        if event:
+                            active_events.add(event)
+                        for tag in row["tags"]:
+                            active_tags.add(tag)
+                            if event:
+                                events_by_tag.setdefault(tag, set()).add(event)
                 cursor = data.get("cursor")
                 if not cursor or cursor in seen_cursors:
                     hit_ceiling = False
@@ -555,6 +575,13 @@ class MarketStatsCache:
                     "categories": sorted(active_categories),
                     "tags": sorted(active_tags),
                     "series": sorted(active_series),
+                },
+            )
+            await self._cache.set(
+                "stats:active_counts",
+                {
+                    "categories": {c: len(e) for c, e in events_by_category.items()},
+                    "tags": {t: len(e) for t, e in events_by_tag.items()},
                 },
             )
             await self._cache.set("stats:active_events", sorted(active_events))
